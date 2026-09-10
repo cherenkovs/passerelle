@@ -1,0 +1,290 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ *
+ * Passerelle design tokens
+ * Mood: a modern French textbook — warm paper, ink blue, terracotta.
+ * Every token has a light ("papier") and dark ("nuit") value.
+ * ------------------------------------------------------------------ */
+
+:root {
+  --bg: #faf7f2;
+  --bg-subtle: #f2ede5;
+  --surface: #ffffff;
+  --surface-2: #f7f3ec;
+  --surface-3: #efe9df;
+  --border: #e7dfd3;
+  --border-strong: #d5cab8;
+
+  --fg: #1a1f33;
+  --fg-muted: #6b7186;
+  --fg-subtle: #9aa0b2;
+
+  --primary: #33409b;
+  --primary-hover: #2a3585;
+  --primary-fg: #ffffff;
+  --primary-soft: #eaecfa;
+  --primary-soft-fg: #2a3585;
+
+  --accent: #c15734;
+  --accent-hover: #a94926;
+  --accent-fg: #ffffff;
+  --accent-soft: #fbeae2;
+  --accent-soft-fg: #97401f;
+
+  --success: #2c7d5b;
+  --success-soft: #e2f3ea;
+  --success-border: #a9dcc3;
+  --danger: #c1354a;
+  --danger-soft: #fbe9ec;
+  --danger-border: #f0b8c1;
+  --warning: #a3760f;
+  --warning-soft: #fbf1d9;
+
+  --ring: #33409b;
+  --shadow-tint: 26 31 51;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0f1220;
+  --bg-subtle: #0a0c17;
+  --surface: #171b2c;
+  --surface-2: #1e2337;
+  --surface-3: #262c44;
+  --border: #2b3149;
+  --border-strong: #3d4467;
+
+  --fg: #eceef7;
+  --fg-muted: #a2a9c2;
+  --fg-subtle: #757c99;
+
+  --primary: #8492f2;
+  --primary-hover: #9aa5f6;
+  --primary-fg: #10142a;
+  --primary-soft: #232a49;
+  --primary-soft-fg: #b9c1fb;
+
+  --accent: #e8845f;
+  --accent-hover: #ef9878;
+  --accent-fg: #23110a;
+  --accent-soft: #33201a;
+  --accent-soft-fg: #f2ae94;
+
+  --success: #4dc08c;
+  --success-soft: #12301f;
+  --success-border: #245c40;
+  --danger: #ef6b81;
+  --danger-soft: #351a22;
+  --danger-border: #6b2f3c;
+  --warning: #dfa93f;
+  --warning-soft: #31260f;
+
+  --ring: #8492f2;
+  --shadow-tint: 0 0 0;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-fg);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-border: var(--success-border);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --color-ring: var(--ring);
+
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
+  --shadow-card:
+    0 1px 2px rgb(var(--shadow-tint) / 0.04), 0 8px 24px -12px rgb(var(--shadow-tint) / 0.12);
+  --shadow-lift:
+    0 2px 4px rgb(var(--shadow-tint) / 0.05), 0 18px 40px -16px rgb(var(--shadow-tint) / 0.22);
+  --shadow-pop: 0 24px 60px -18px rgb(var(--shadow-tint) / 0.32);
+
+  --ease-spring: linear(0, 0.42 12%, 0.83 24%, 1.01 33%, 1.05 42%, 1 60%, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings:
+      'cv05' 1,
+      'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+  }
+
+  /* Scrollbars that don't fight the design */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-subtle);
+  }
+}
+
+@layer utilities {
+  /* Warm paper grain — barely perceptible, keeps large surfaces from feeling flat */
+  .grain::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* French text gets slightly more generous tracking — it reads better */
+  .fr {
+    font-feature-settings:
+      'kern' 1,
+      'liga' 1;
+    letter-spacing: 0.005em;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .safe-b {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-pop {
+  animation: pop-in 0.28s var(--ease-spring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
