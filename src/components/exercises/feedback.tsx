@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, Lightbulb, XCircle } from 'lucide-react'
-import { SpeakButton, SpeakInline } from '@/components/common/speak'
+import { SpeakInline } from '@/components/common/rich-text'
+import { SpeakButton } from '@/components/common/speak'
 import { frenchIn } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import type { Outcome } from './check'

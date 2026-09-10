@@ -1,5 +1,7 @@
 import { Fragment } from 'react'
+import { SpeakButton } from '@/components/common/speak'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
+import { frenchIn } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 
 /**
@@ -23,7 +25,7 @@ export function RichText({ children, className }: { children: string; className?
                 <li key={i} className="flex gap-2.5">
                   <span className="bg-accent mt-[7px] size-1.5 shrink-0 rounded-full" />
                   <span>
-                    <Inline>{l.replace(/^\s*[•·-]\s+/, '')}</Inline>
+                    <Line>{l.replace(/^\s*[•·-]\s+/, '')}</Line>
                   </span>
                 </li>
               ))}
@@ -40,7 +42,7 @@ export function RichText({ children, className }: { children: string; className?
                     {i + 1}.
                   </span>
                   <span>
-                    <Inline>{l.replace(/^\s*\d+\.\s+/, '')}</Inline>
+                    <Line>{l.replace(/^\s*\d+\.\s+/, '')}</Line>
                   </span>
                 </li>
               ))}
@@ -56,7 +58,7 @@ export function RichText({ children, className }: { children: string; className?
             >
               {lines.map((l, i) => (
                 <div key={i}>
-                  <Inline>{l.replace(/^>\s?/, '')}</Inline>
+                  <Line>{l.replace(/^>\s?/, '')}</Line>
                 </div>
               ))}
             </blockquote>
@@ -68,13 +70,40 @@ export function RichText({ children, className }: { children: string; className?
             {lines.map((l, i) => (
               <Fragment key={i}>
                 {i > 0 && <br />}
-                <Inline>{l}</Inline>
+                <Line>{l}</Line>
               </Fragment>
             ))}
           </p>
         )
       })}
     </div>
+  )
+}
+
+/**
+ * One line of prose, with audio when there is French in it.
+ *
+ * Most French a learner meets in a lesson lives here — "Je n'aime pas le café.
+ * — Я не люблю каву." — and until now this was the one place in the app with no
+ * sound at all: not tappable, not speakable, just text.
+ */
+function Line({ children }: { children: string }) {
+  const french = frenchIn(children)
+  return (
+    <>
+      <Inline>{children}</Inline>
+      {french && (
+        <>
+          {' '}
+          <SpeakButton
+            text={french}
+            size="sm"
+            className="translate-y-1.5"
+            label={`Прослухати: ${french}`}
+          />
+        </>
+      )}
+    </>
   )
 }
 
@@ -104,4 +133,41 @@ function render(spans: Span[]) {
  */
 export function Inline({ children }: { children: string }) {
   return <>{render(parseEmphasis(children))}</>
+}
+
+/**
+ * Text that may contain French, with a way to hear it.
+ *
+ * Explanations, hints and warnings are written in Ukrainian *about* French, so
+ * a plain speaker button would have the voice stumble through the Cyrillic.
+ * This renders the line as written and offers audio for the French inside it —
+ * automatically, wherever it appears, so the learner never meets a French
+ * phrase they cannot listen to.
+ *
+ * When there is no French in the string, nothing is rendered but the text.
+ */
+export function SpeakInline({
+  children,
+  className,
+  size = 'sm',
+}: {
+  children: string
+  className?: string
+  size?: 'sm' | 'md'
+}) {
+  const french = frenchIn(children)
+
+  if (!french) return <Inline>{children}</Inline>
+
+  return (
+    <span className={cn('inline', className)}>
+      <Inline>{children}</Inline>{' '}
+      <SpeakButton
+        text={french}
+        size={size}
+        className="translate-y-1.5"
+        label={`Прослухати: ${french}`}
+      />
+    </span>
+  )
 }

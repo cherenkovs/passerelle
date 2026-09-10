@@ -3,9 +3,8 @@ import { BookmarkPlus, BookmarkCheck, Loader2, Volume2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WORDS, type Word } from '@/content'
 import { agree } from '@/lib/agreement'
-import { Inline } from '@/components/common/rich-text'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import { cancelSpeech, frenchIn, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
+import { cancelSpeech, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -104,44 +103,6 @@ export function SpeakButton({
         </button>
       )}
     </div>
-  )
-}
-
-/**
- * Text that may contain French, with a way to hear it.
- *
- * Explanations, hints and warnings are written in Ukrainian *about* French, so
- * a plain speaker button would have the voice stumble through the Cyrillic.
- * This renders the line as written and offers audio for the French inside it —
- * automatically, wherever it appears, so the learner never meets a French
- * phrase they cannot listen to.
- *
- * When there is no French in the string, nothing is rendered but the text.
- */
-export function SpeakInline({
-  children,
-  className,
-  size = 'sm',
-}: {
-  children: string
-  className?: string
-  size?: 'sm' | 'md'
-}) {
-  const gender = useGender()
-  const french = useMemo(() => frenchIn(agree(children, gender)), [children, gender])
-
-  if (!french) return <Inline>{children}</Inline>
-
-  return (
-    <span className={cn('inline', className)}>
-      <Inline>{children}</Inline>{' '}
-      <SpeakButton
-        text={french}
-        size={size}
-        className="translate-y-1.5"
-        label={`Прослухати: ${french}`}
-      />
-    </span>
   )
 }
 
@@ -383,15 +344,24 @@ function WordPopover({ token, gloss }: { token: string; gloss: Gloss }) {
  * Renders French text with every word tappable.
  * Unknown words stay plain so the highlighting means something.
  */
-/** One whitespace-separated word, tappable when the dictionary knows it. */
+/**
+ * One whitespace-separated word, tappable when the dictionary knows it.
+ *
+ * Tapping **speaks it and opens the gloss**. It used to only open the gloss,
+ * which put a second tap between the learner and the sound — while a dotted
+ * underline elsewhere in the app spoke immediately. Two identical affordances
+ * that behaved differently is worse than either behaviour on its own.
+ */
 function Token({ token }: { token: string }) {
   const gloss = lookupWord(token)
+  const { speak } = useSpeak()
   if (!gloss) return <span>{token}</span>
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
+          onClick={() => speak(gloss.word?.fr ?? token)}
           className="decoration-primary/25 hover:bg-primary-soft hover:decoration-primary/60 cursor-pointer rounded-[3px] underline decoration-dotted decoration-1 underline-offset-[3px] transition-colors"
         >
           {token}
