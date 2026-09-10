@@ -252,3 +252,57 @@ describe('slowRate', () => {
     }
   })
 })
+
+describe('frenchIn', () => {
+  it('pulls the French out of a Ukrainian explanation', async () => {
+    const { frenchIn } = await import('./speech')
+    // The line that prompted this: the French half was there to be heard, and
+    // there was no way to hear it.
+    expect(
+      frenchIn("Je viens d'Ukraine. De + Ukraine → d'Ukraine, бо наступне слово з голосної."),
+    ).toBe("Je viens d'Ukraine. De + Ukraine, d'Ukraine")
+  })
+
+  it('keeps the half after an arrow instead of truncating there', async () => {
+    const { speakable } = await import('./speech')
+    expect(speakable("De + Ukraine → d'Ukraine")).toBe("De + Ukraine, d'Ukraine")
+  })
+
+  it('still drops the IPA an arrow used to introduce', async () => {
+    const { speakable } = await import('./speech')
+    expect(speakable('les amis → [le‿za.mi]')).toBe('les amis')
+  })
+
+  it('returns nothing when the text is pure Ukrainian', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn('Прикметник узгоджується з іменником.')).toBe('')
+    expect(frenchIn('')).toBe('')
+  })
+
+  it('passes pure French through', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn('Je ne comprends pas.')).toBe('Je ne comprends pas.')
+  })
+
+  it('separates fragments so they are not run together', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn('Кажемо le livre, а не la livre — рід інший.')).toBe('le livre. la livre')
+  })
+
+  it('keeps French punctuation and quotes attached', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn('Формула: «Je voudrais un café», і все.')).toBe('«Je voudrais un café»')
+  })
+
+  it('does not double a full stop a fragment already has', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn("L'Ukraine — жіночого роду, тому en. Порівняй: au Canada (чол. рід).")).toBe(
+      "L'Ukraine. en. au Canada",
+    )
+  })
+
+  it('ignores stray digits and symbols with no French around them', async () => {
+    const { frenchIn } = await import('./speech')
+    expect(frenchIn('Правило 80 % випадків.')).toBe('')
+  })
+})

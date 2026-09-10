@@ -3,14 +3,14 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Dumbbell, Volume2, X } from 'luci
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Inline, RichText } from '@/components/common/rich-text'
-import { SpeakButton, TapText } from '@/components/common/speak'
+import { SpeakButton, SpeakInline, TapText, useSpeak } from '@/components/common/speak'
 import { WordCard } from '@/components/common/word-card'
 import { ExerciseRunner } from '@/components/exercises/runner'
 import { FullScreen } from '@/components/layout/full-screen'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { getLesson, getWords, moduleOfLesson, type GrammarTable, type LessonStep } from '@/content'
-import { speak as speakRaw } from '@/lib/speech'
+import { frenchIn, speak as speakRaw } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
@@ -295,9 +295,34 @@ export function Warning({ children }: { children: string }) {
     <div className="border-warning/30 bg-warning-soft mt-6 flex gap-3 rounded-2xl border p-4">
       <AlertTriangle className="text-warning mt-0.5 size-5 shrink-0" />
       <p className="text-fg text-[14px] leading-relaxed text-pretty">
-        <Inline>{children}</Inline>
+        <SpeakInline>{children}</SpeakInline>
       </p>
     </div>
+  )
+}
+
+/**
+ * A table cell you can tap to hear.
+ *
+ * Conjugation tables are where a learner most wants audio and least wants
+ * clutter — a speaker icon in sixty cells would drown the table it is meant to
+ * serve. So the cell itself is the button, and only when there is French in it.
+ */
+function SpeakCell({ children }: { children: string }) {
+  const { speak } = useSpeak()
+  const french = frenchIn(children)
+
+  if (!french) return <Inline>{children}</Inline>
+
+  return (
+    <button
+      type="button"
+      onClick={() => speak(french)}
+      aria-label={`Прослухати: ${french}`}
+      className="hover:text-primary decoration-primary/30 hover:decoration-primary cursor-pointer text-left underline decoration-dotted decoration-1 underline-offset-4 transition-colors"
+    >
+      <Inline>{children}</Inline>
+    </button>
   )
 }
 
@@ -335,7 +360,7 @@ export function Table({ table, className }: { table: GrammarTable; className?: s
                       j !== 1 && 'text-fg-muted',
                     )}
                   >
-                    <Inline>{cell}</Inline>
+                    <SpeakCell>{cell}</SpeakCell>
                   </td>
                 ))}
               </tr>

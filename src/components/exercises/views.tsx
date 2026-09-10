@@ -3,7 +3,7 @@ import { Ear, Mic, MicOff, RotateCcw, Volume2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AccentBar } from '@/components/common/accent-bar'
 import { Inline } from '@/components/common/rich-text'
-import { SpeakButton, TapText, useSpeak } from '@/components/common/speak'
+import { SpeakButton, SpeakInline, TapText, useSpeak } from '@/components/common/speak'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type {
@@ -301,7 +301,7 @@ export function TypeView({
       </div>
       {exercise.hint && !outcome && (
         <p className="text-fg-subtle mb-4 text-sm">
-          💡 <Inline>{exercise.hint}</Inline>
+          💡 <SpeakInline>{exercise.hint}</SpeakInline>
         </p>
       )}
       <AnswerField
@@ -330,7 +330,7 @@ export function TranslateView({
       </div>
       {exercise.hint && !outcome && (
         <p className="text-fg-subtle mb-4 text-sm">
-          💡 <Inline>{exercise.hint}</Inline>
+          💡 <SpeakInline>{exercise.hint}</SpeakInline>
         </p>
       )}
       <AnswerField
@@ -358,6 +358,11 @@ export function ClozeView({
   const str = typeof value === 'string' ? value : ''
   const parts = exercise.sentence.split(/(_{2,})/)
   const blanks = parts.filter((p) => /^_{2,}$/.test(p)).length
+
+  // The whole point of a gap-fill is the finished sentence, and until now there
+  // was no way to hear it — the learner filled the blank and moved on without
+  // ever knowing how the result sounds.
+  const filled = exercise.sentence.replace(/_{2,}/, exercise.answer[0] ?? '')
 
   return (
     <div>
@@ -392,14 +397,17 @@ export function ClozeView({
             )
           })}
         </div>
-        <div className="text-fg-muted mt-3 text-sm">
-          <Inline>{exercise.translation}</Inline>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="text-fg-muted text-sm">
+            <Inline>{exercise.translation}</Inline>
+          </div>
+          {outcome && <SpeakButton text={filled} size="sm" slow />}
         </div>
       </div>
 
       {exercise.hint && !outcome && (
         <p className="text-fg-subtle mb-4 text-sm">
-          💡 <Inline>{exercise.hint}</Inline>
+          💡 <SpeakInline>{exercise.hint}</SpeakInline>
         </p>
       )}
 

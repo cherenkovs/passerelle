@@ -3,8 +3,9 @@ import { BookmarkPlus, BookmarkCheck, Loader2, Volume2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WORDS, type Word } from '@/content'
 import { agree } from '@/lib/agreement'
+import { Inline } from '@/components/common/rich-text'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import { cancelSpeech, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
+import { cancelSpeech, frenchIn, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -103,6 +104,44 @@ export function SpeakButton({
         </button>
       )}
     </div>
+  )
+}
+
+/**
+ * Text that may contain French, with a way to hear it.
+ *
+ * Explanations, hints and warnings are written in Ukrainian *about* French, so
+ * a plain speaker button would have the voice stumble through the Cyrillic.
+ * This renders the line as written and offers audio for the French inside it —
+ * automatically, wherever it appears, so the learner never meets a French
+ * phrase they cannot listen to.
+ *
+ * When there is no French in the string, nothing is rendered but the text.
+ */
+export function SpeakInline({
+  children,
+  className,
+  size = 'sm',
+}: {
+  children: string
+  className?: string
+  size?: 'sm' | 'md'
+}) {
+  const gender = useGender()
+  const french = useMemo(() => frenchIn(agree(children, gender)), [children, gender])
+
+  if (!french) return <Inline>{children}</Inline>
+
+  return (
+    <span className={cn('inline', className)}>
+      <Inline>{children}</Inline>{' '}
+      <SpeakButton
+        text={french}
+        size={size}
+        className="translate-y-1.5"
+        label={`Прослухати: ${french}`}
+      />
+    </span>
   )
 }
 

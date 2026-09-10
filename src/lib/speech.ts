@@ -128,15 +128,63 @@ export function speakable(text: string) {
     text
       .replace(/\*+/g, '')
       .replace(/^[❌✅]\s*/, '')
-      // Everything from a derivation arrow on is commentary, not the phrase.
-      .split(/[→⟶⇒]/)[0]
+      // An arrow becomes a pause, not a full stop. It used to truncate, which
+      // was right for "les amis → [le‿za.mi]" but wrong everywhere else: in an
+      // explanation like "De + Ukraine → d'Ukraine" the interesting half is the
+      // one after the arrow, and it was being silently cut off.
+      .replace(/\s*[→⟶⇒]\s*/g, ', ')
       // IPA between brackets, plus the liaison undertie if it escaped them.
       .replace(/\[[^\]]*\]/g, '')
       .replace(/‿/g, ' ')
       .split(' / ')[0]
       .replace(/\s+/g, ' ')
+      .replace(/[,\s]+$/, '')
       .trim()
   )
+}
+
+/** Anything outside the Cyrillic alphabet, which in this app means French. */
+const CYRILLIC = /[\u0400-\u04FF]/
+
+/**
+ * Pull the French out of a mixed Ukrainian/French string.
+ *
+ * Explanations are written in Ukrainian *about* French — "De + Ukraine →
+ * d'Ukraine, бо наступне слово з голосної" — so there is something worth
+ * hearing in most of them, but handing the whole line to a French voice would
+ * have it stumble through the Cyrillic.
+ *
+ * The split is by script, which is exact here rather than a guess: Ukrainian is
+ * Cyrillic and French is Latin, with no overlap. Fragments are joined with a
+ * full stop so the synthesiser pauses between them instead of running two
+ * unrelated phrases together.
+ */
+export function frenchIn(text: string): string {
+  const out: string[] = []
+  let run: string[] = []
+
+  const flush = () => {
+    if (run.some((w) => /\p{Script=Latin}/u.test(w))) {
+      // Trailing punctuation belonged to the Ukrainian that has just been cut
+      // away, so it would only make the voice pause on nothing.
+      out.push(run.join(' ').replace(/[\s,;:—–-]+$/, ''))
+    }
+    run = []
+  }
+
+  for (const word of speakable(text).split(/\s+/)) {
+    if (CYRILLIC.test(word)) flush()
+    else run.push(word)
+  }
+  flush()
+
+  // A full stop between fragments so the voice pauses — but only where the
+  // fragment hasn't already ended in one, or "тому en." becomes "en..".
+  return out
+    .map((f, i) => (i === out.length - 1 || /[.!?…]$/.test(f) ? f : `${f}.`))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export async function speak(text: string, opts: SpeakOptions = {}) {

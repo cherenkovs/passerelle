@@ -264,11 +264,7 @@ export function ExerciseRunner({
       {/* Footer: feedback + action */}
       <footer className="border-line bg-bg/90 sticky bottom-0 z-30 border-t px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          <FeedbackBar
-            outcome={outcome}
-            explain={current.explain}
-            speakText={'text' in current ? current.text : undefined}
-          />
+          <FeedbackBar outcome={outcome} explain={current.explain} />
           <div className="flex items-center gap-3">
             {!outcome ? (
               <Button

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, Lightbulb, XCircle } from 'lucide-react'
-import { Inline } from '@/components/common/rich-text'
-import { SpeakButton } from '@/components/common/speak'
+import { SpeakButton, SpeakInline } from '@/components/common/speak'
+import { frenchIn } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import type { Outcome } from './check'
 
@@ -18,13 +18,10 @@ const COPY = {
 export function FeedbackBar({
   outcome,
   explain,
-  speakText,
   className,
 }: {
   outcome: Outcome | null
   explain?: string
-  /** French string worth hearing again after answering. */
-  speakText?: string
   className?: string
 }) {
   return (
@@ -65,19 +62,23 @@ export function FeedbackBar({
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-fg-muted">Правильно:</span>
                   <span className="fr text-fg font-medium">{outcome.expected}</span>
-                  {speakText !== null && <SpeakButton text={outcome.expected} size="sm" />}
+                  {/* Audible whenever it's French — a correct answer you can't
+                      hear is the one thing the learner most wants to hear. */}
+                  {frenchIn(outcome.expected) && (
+                    <SpeakButton text={outcome.expected} size="sm" slow />
+                  )}
                 </div>
               )}
 
               {outcome.note && (
                 <p className="text-fg-muted mt-2 text-[13px] leading-relaxed">
-                  <Inline>{outcome.note}</Inline>
+                  <SpeakInline>{outcome.note}</SpeakInline>
                 </p>
               )}
 
               {explain && (
                 <p className="text-fg-muted mt-2 border-t border-current/10 pt-2 text-[13px] leading-relaxed text-pretty">
-                  <Inline>{explain}</Inline>
+                  <SpeakInline>{explain}</SpeakInline>
                 </p>
               )}
             </div>
