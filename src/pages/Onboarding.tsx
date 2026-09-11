@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import type { Gender } from '@/lib/agreement'
+import { useSpeak } from '@/components/common/speak'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
@@ -37,6 +38,7 @@ const HIGHLIGHTS = [
 
 export function Onboarding() {
   const navigate = useNavigate()
+  const { speak } = useSpeak()
   const [params] = useSearchParams()
   const isAdding = params.get('add') === '1'
 
@@ -175,7 +177,12 @@ export function Onboarding() {
                     <button
                       key={choice.gender}
                       type="button"
-                      onClick={() => setGender(choice.gender)}
+                      onClick={() => {
+                        // "fatigué" against "fatiguée": the difference is
+                        // audible before it is visible.
+                        speak(choice.example)
+                        setGender(choice.gender)
+                      }}
                       className={cn(
                         'rounded-2xl border-2 p-4 text-left transition-all',
                         gender === choice.gender

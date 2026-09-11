@@ -708,8 +708,14 @@ export function MatchView({ exercise, onChange, outcome, onSubmit }: ViewProps<M
               <button
                 key={i}
                 type="button"
-                disabled={done}
-                onClick={() => setLeft(i)}
+                aria-label={`${p.fr} — прослухати`}
+                onClick={() => {
+                  // Picking the French side says it. A matched word stays
+                  // tappable for sound: being solved is not a reason to go
+                  // silent, and it is the moment you most want to hear it.
+                  speak(p.fr)
+                  if (!done) setLeft(i)
+                }}
                 className={cn(
                   'fr w-full rounded-xl border-2 px-3.5 py-3 text-left text-[15px] font-medium transition-all',
                   done && 'border-success bg-success-soft text-success opacity-60',

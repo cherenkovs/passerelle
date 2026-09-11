@@ -124,7 +124,13 @@ export function SettingsPage() {
                 <button
                   key={choice.gender}
                   type="button"
-                  onClick={() => updateProfile({ gender: choice.gender })}
+                  onClick={() => {
+                    // The pair only differs in a final consonant you can hear
+                    // but barely see — "prêt" against "prête" — so the choice
+                    // says itself.
+                    speak(choice.example)
+                    updateProfile({ gender: choice.gender })
+                  }}
                   className={cn(
                     'flex-1 rounded-2xl border-2 p-3.5 text-left transition-all sm:max-w-52',
                     profile.gender === choice.gender

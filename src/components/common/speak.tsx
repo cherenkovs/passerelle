@@ -73,7 +73,10 @@ export function SpeakButton({
         : 'size-10 [&_svg]:size-5'
 
   return (
-    <div className="inline-flex items-center gap-1.5">
+    // A span, not a div: this sits inside prose paragraphs, and a <div> inside
+    // a <p> is invalid HTML — the browser silently closes the paragraph early,
+    // which breaks the run of text around it. `inline-flex` renders the same.
+    <span className="inline-flex items-center gap-1.5">
       <button
         type="button"
         onClick={() => speak(text)}
@@ -102,7 +105,7 @@ export function SpeakButton({
           ½×
         </button>
       )}
-    </div>
+    </span>
   )
 }
 
@@ -305,11 +308,13 @@ function WordPopover({ token, gloss }: { token: string; gloss: Gloss }) {
         )}
 
         {gloss.word?.example && (
-          <p className="border-line text-fg-muted mt-2 border-t pt-2 text-[12px] leading-snug">
-            <span className="fr text-fg">{gloss.word.example.fr}</span>
-            <br />
+          <div className="border-line text-fg-muted mt-2 border-t pt-2 text-[12px] leading-snug">
+            <div className="flex items-start gap-1.5">
+              <span className="fr text-fg flex-1">{gloss.word.example.fr}</span>
+              <SpeakButton text={gloss.word.example.fr} size="sm" className="-mt-1 shrink-0" />
+            </div>
             {gloss.word.example.uk}
-          </p>
+          </div>
         )}
 
         <button

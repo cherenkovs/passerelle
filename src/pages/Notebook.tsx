@@ -395,9 +395,10 @@ function MistakesTab({ onPractise }: { onPractise: () => void }) {
                     <span className="text-fg-subtle">Ти написав: </span>
                     <span className="fr text-danger line-through">{m.given || '—'}</span>
                   </span>
-                  <span>
+                  <span className="inline-flex items-baseline gap-1.5">
                     <span className="text-fg-subtle">Правильно: </span>
                     <span className="fr text-success font-medium">{m.expected}</span>
+                    <SpeakButton text={m.expected} size="sm" />
                   </span>
                 </div>
 

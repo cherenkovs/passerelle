@@ -210,9 +210,12 @@ export function StoryPage() {
           <span className="text-4xl">{story.emoji}</span>
           <LevelChip level={story.level} />
         </div>
-        <h1 className="fr font-display mt-4 text-4xl font-semibold tracking-tight text-balance">
-          {story.title}
-        </h1>
+        <div className="mt-3 flex items-start gap-2">
+          <h1 className="fr font-display text-4xl font-semibold tracking-tight text-balance">
+            {story.title}
+          </h1>
+          <SpeakButton text={story.title} className="mt-2 shrink-0" />
+        </div>
         <p className="text-fg-muted mt-1 text-lg">{story.titleUk}</p>
         <p className="text-fg-subtle mt-3 text-[13px] italic">{story.source}</p>
 

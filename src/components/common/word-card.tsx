@@ -104,7 +104,10 @@ export function WordCard({
 
           {!compact && word.example && (
             <div className="border-line mt-2.5 border-t pt-2.5 text-[12.5px] leading-snug">
-              <div className="fr text-fg">{word.example.fr}</div>
+              <div className="flex items-start gap-1.5">
+                <div className="fr text-fg flex-1">{word.example.fr}</div>
+                <SpeakButton text={word.example.fr} size="sm" className="-mt-0.5 shrink-0" />
+              </div>
               <div className="text-fg-subtle">{word.example.uk}</div>
             </div>
           )}

@@ -369,9 +369,12 @@ export function VideoPage() {
           {builtin && <span className="text-3xl">{builtin.emoji}</span>}
           {builtin && <LevelChip level={builtin.level} />}
         </div>
-        <h1 className="fr font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
-          {title}
-        </h1>
+        <div className="mt-3 flex items-start gap-2">
+          <h1 className="fr font-display text-3xl font-semibold tracking-tight text-balance">
+            {title}
+          </h1>
+          <SpeakButton text={title} className="mt-2 shrink-0" />
+        </div>
         {subtitle && <p className="text-fg-muted mt-1 text-lg">{subtitle}</p>}
       </header>
 

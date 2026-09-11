@@ -142,9 +142,12 @@ export function WritingTaskPage() {
           <span className="text-4xl">{task.emoji}</span>
           <LevelChip level={task.level} />
         </div>
-        <h1 className="fr font-display mt-4 text-3xl font-semibold tracking-tight text-balance">
-          {task.title}
-        </h1>
+        <div className="mt-3 flex items-start gap-2">
+          <h1 className="fr font-display text-3xl font-semibold tracking-tight text-balance">
+            {task.title}
+          </h1>
+          <SpeakButton text={task.title} className="mt-2 shrink-0" />
+        </div>
         <p className="text-fg-muted mt-1 text-lg">{task.titleUk}</p>
         <p className="text-fg mt-4 leading-relaxed text-pretty">{task.brief}</p>
       </header>

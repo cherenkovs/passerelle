@@ -308,7 +308,14 @@ export function ScenarioPage() {
                     <div className="text-warning font-medium">
                       {turn.hint ?? 'Очікувана відповідь:'}
                     </div>
-                    <div className="fr text-fg mt-1.5">{agree(turn.expected.fr, gender)}</div>
+                    <div className="mt-1.5 flex items-start gap-1.5">
+                      <div className="fr text-fg flex-1">{agree(turn.expected.fr, gender)}</div>
+                      <SpeakButton
+                        text={agree(turn.expected.fr, gender)}
+                        size="sm"
+                        className="-mt-0.5 shrink-0"
+                      />
+                    </div>
                     <div className="text-fg-muted">{turn.expected.uk}</div>
                   </div>
                 </motion.div>
@@ -423,11 +430,17 @@ function LearnerBubble({ entry }: { entry: Extract<Entry, { role: 'learner' }> }
           entry.status === 'wrong' && 'border-danger-border bg-danger-soft',
         )}
       >
-        <div className="fr text-fg text-[15.5px] leading-snug">{entry.text}</div>
+        <div className="flex items-start gap-1.5">
+          <div className="fr text-fg flex-1 text-[15.5px] leading-snug">{entry.text}</div>
+          <SpeakButton text={entry.text} size="sm" className="shrink-0" />
+        </div>
         {entry.status !== 'correct' && (
           <div className="mt-2 border-t border-current/10 pt-2 text-[12.5px]">
-            <span className="text-fg-muted">Природніше: </span>
-            <span className="fr text-fg font-medium">{entry.expected}</span>
+            <div className="text-fg-muted">Природніше:</div>
+            <div className="flex items-start gap-1.5">
+              <span className="fr text-fg flex-1 font-medium">{entry.expected}</span>
+              <SpeakButton text={entry.expected} size="sm" className="-mt-0.5 shrink-0" />
+            </div>
           </div>
         )}
       </div>
