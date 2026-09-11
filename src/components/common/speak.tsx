@@ -1,10 +1,10 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { BookmarkPlus, BookmarkCheck, Loader2, Volume2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WORDS, type Word } from '@/content'
 import { agree } from '@/lib/agreement'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import { cancelSpeech, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
+import { cancelSpeechBy, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -19,10 +19,15 @@ export function useSpeak() {
   const gender = useGender()
   const [speaking, setSpeaking] = useState(false)
 
+  // Identity for this hook instance, so unmounting silences only what it
+  // started. A flashcard flip unmounts the speaker button inside the card, and
+  // a blanket cancel there cut the card's own audio off mid-word.
+  const owner = useRef({}).current
+
   useEffect(() => {
     void loadVoices()
-    return () => cancelSpeech()
-  }, [])
+    return () => cancelSpeechBy(owner)
+  }, [owner])
 
   const speak = useCallback(
     (text: string, opts: { rate?: number; onEnd?: () => void } = {}) => {
@@ -30,6 +35,7 @@ export function useSpeak() {
       void speakRaw(agree(text, gender), {
         rate: opts.rate ?? rate,
         voiceURI: voiceURI ?? undefined,
+        owner,
         onEnd: () => {
           setSpeaking(false)
           // Callers that read several passages in a row need to know when one
@@ -38,7 +44,7 @@ export function useSpeak() {
         },
       })
     },
-    [gender, rate, voiceURI],
+    [gender, rate, voiceURI, owner],
   )
 
   /** Deliberately slow — for picking a phrase apart word by word. */

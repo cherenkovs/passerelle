@@ -101,14 +101,35 @@ export type SpeakOptions = {
   lang?: string
   onEnd?: () => void
   onStart?: () => void
+  /** Identity of the caller, so it can later cancel only its own speech. */
+  owner?: unknown
 }
 
 let currentUtterance: SpeechSynthesisUtterance | null = null
 
+/**
+ * Who started what is currently being said.
+ *
+ * Components stop the voice when they unmount, so that leaving a page does not
+ * leave it talking to an empty room. But an unmount is not evidence that the
+ * voice is saying *your* text: on a flashcard, flipping the card unmounts the
+ * speaker button inside it, and a blanket cancel there cut off the word the
+ * card itself had just started — measured at exactly 1.0s in, every flip.
+ *
+ * So ownership is recorded, and an unmount only silences its own utterance.
+ */
+let currentOwner: unknown = null
+
 export function cancelSpeech() {
   if (!supportsTTS()) return
   currentUtterance = null
+  currentOwner = null
   window.speechSynthesis.cancel()
+}
+
+/** Stop the voice only if it is still saying something `owner` started. */
+export function cancelSpeechBy(owner: unknown) {
+  if (owner !== null && currentOwner === owner) cancelSpeech()
 }
 
 /**
@@ -273,16 +294,18 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   if (voice) u.voice = voice
 
   if (opts.onStart) u.onstart = opts.onStart
-  u.onend = () => {
-    currentUtterance = null
+  const finish = () => {
+    if (currentUtterance === u) {
+      currentUtterance = null
+      currentOwner = null
+    }
     opts.onEnd?.()
   }
-  u.onerror = () => {
-    currentUtterance = null
-    opts.onEnd?.()
-  }
+  u.onend = finish
+  u.onerror = finish
 
   currentUtterance = u
+  currentOwner = opts.owner ?? null
   window.speechSynthesis.speak(u)
 
   // Chrome bug: synthesis pauses itself on long utterances.

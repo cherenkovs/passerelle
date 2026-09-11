@@ -16,6 +16,8 @@ function voice(name: string, lang: string, localService = true): FakeVoice {
 
 let spoken: { text: string; lang: string; rate: number; voice?: FakeVoice }[] = []
 let cancels = 0
+/** The utterance handed to the engine, so a test can end it the way the engine would. */
+let lastUtterance: SpeechSynthesisUtterance | null = null
 
 function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
   let available = opts.populateLate ? [] : voices
@@ -24,6 +26,7 @@ function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
   const synth = {
     getVoices: () => available,
     speak: (u: SpeechSynthesisUtterance) => {
+      lastUtterance = u
       spoken.push({ text: u.text, lang: u.lang, rate: u.rate, voice: u.voice as never })
       setTimeout(() => u.onstart?.(new Event('start') as never), 0)
     },
@@ -66,6 +69,7 @@ function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
 beforeEach(() => {
   spoken = []
   cancels = 0
+  lastUtterance = null
   vi.resetModules()
 })
 
@@ -347,5 +351,48 @@ describe('symbols that are notation, not speech', () => {
     const { frenchIn } = await import('./speech')
     // Two bare particles, but hearing "ne" against "n'" is the whole point.
     expect(frenchIn("Якщо дієслово починається з голосної, ne скорочується до n':")).toBe("ne. n'")
+  })
+})
+
+describe('who may stop the voice', () => {
+  it('lets an unrelated component unmount without cutting the audio', async () => {
+    install([voice('Thomas', 'fr-FR')])
+    const { speak, cancelSpeechBy } = await import('./speech')
+
+    const card = {}
+    const buttonInsideCard = {}
+    await speak('comprendre', { owner: card })
+    const afterSpeak = cancels // the barge-in inside speak()
+
+    // Flipping the card unmounts the speaker button sitting inside it. That
+    // button never started anything, so it must not silence the card's word.
+    cancelSpeechBy(buttonInsideCard)
+    expect(cancels).toBe(afterSpeak)
+
+    // The component that did start it still can.
+    cancelSpeechBy(card)
+    expect(cancels).toBe(afterSpeak + 1)
+  })
+
+  it('forgets the owner once the utterance is over', async () => {
+    install([voice('Thomas', 'fr-FR')])
+    const { speak, cancelSpeechBy } = await import('./speech')
+
+    const card = {}
+    await speak('comprendre', { owner: card })
+    const afterSpeak = cancels
+
+    // The word finished on its own; a later unmount has nothing to stop.
+    lastUtterance?.onend?.(new Event('end') as never)
+    cancelSpeechBy(card)
+    expect(cancels).toBe(afterSpeak)
+  })
+
+  it('ignores an owner that never spoke, and a null one', async () => {
+    install([voice('Thomas', 'fr-FR')])
+    const { cancelSpeechBy } = await import('./speech')
+    cancelSpeechBy({})
+    cancelSpeechBy(null)
+    expect(cancels).toBe(0)
   })
 })

@@ -324,7 +324,10 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
                   <div className="text-fg text-xl font-medium">{word.uk}</div>
                   {word.example && (
                     <div className="mt-4 text-[13.5px]">
-                      <div className="fr text-fg">{word.example.fr}</div>
+                      <div className="flex items-start justify-center gap-1.5">
+                        <div className="fr text-fg">{word.example.fr}</div>
+                        <SpeakButton text={word.example.fr} size="sm" className="shrink-0" />
+                      </div>
                       <div className="text-fg-muted mt-0.5">{word.example.uk}</div>
                     </div>
                   )}
