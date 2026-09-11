@@ -1,6 +1,6 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { BookmarkPlus, BookmarkCheck, Loader2, Volume2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WORDS, type Word } from '@/content'
 import { agree } from '@/lib/agreement'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
@@ -22,7 +22,7 @@ export function useSpeak() {
   // Identity for this hook instance, so unmounting silences only what it
   // started. A flashcard flip unmounts the speaker button inside the card, and
   // a blanket cancel there cut the card's own audio off mid-word.
-  const owner = useRef({}).current
+  const [owner] = useState(() => ({}))
 
   useEffect(() => {
     void loadVoices()
