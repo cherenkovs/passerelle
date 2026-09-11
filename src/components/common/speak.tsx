@@ -237,6 +237,10 @@ export function lookupWord(token: string): Gloss | null {
     const after = clean.split("'").pop() ?? ''
     const hit = wordIndex.get(after)
     if (hit) return { fr: hit.fr, uk: hit.uk, word: hit, ipa: hit.ipa, note: hit.note }
+    // …and the function words too. Without this "c'est" found nothing, because
+    // "est" lives in the grammar glossary rather than in the dictionary.
+    const fnAfter = FUNCTION_GLOSS[after]
+    if (fnAfter) return { fr: clean, uk: fnAfter }
   }
 
   const fn = FUNCTION_GLOSS[clean]
@@ -344,26 +348,46 @@ function WordPopover({ token, gloss }: { token: string; gloss: Gloss }) {
  * Renders French text with every word tappable.
  * Unknown words stay plain so the highlighting means something.
  */
+const WORD_CLASS =
+  'decoration-primary/25 hover:bg-primary-soft hover:decoration-primary/60 cursor-pointer rounded-[3px] underline decoration-dotted decoration-1 underline-offset-[3px] transition-colors'
+
 /**
- * One whitespace-separated word, tappable when the dictionary knows it.
+ * One whitespace-separated word.
  *
  * Tapping **speaks it and opens the gloss**. It used to only open the gloss,
  * which put a second tap between the learner and the sound — while a dotted
  * underline elsewhere in the app spoke immediately. Two identical affordances
  * that behaved differently is worse than either behaviour on its own.
+ *
+ * Every French word is tappable, dictionary entry or not. Conjugated forms of
+ * irregular verbs ("comprends" from *comprendre*) are not in the index and
+ * guessing at them would risk showing the wrong meaning — but there is always
+ * something to *hear*, and silence was the worse answer.
  */
 function Token({ token }: { token: string }) {
   const gloss = lookupWord(token)
   const { speak } = useSpeak()
-  if (!gloss) return <span>{token}</span>
+
+  // Ukrainian, digits, bare punctuation: nothing to say and nothing to gloss.
+  if (!/\p{Script=Latin}/u.test(token)) return <span>{token}</span>
+
+  if (!gloss) {
+    return (
+      <button
+        type="button"
+        onClick={() => speak(token)}
+        aria-label={`Прослухати: ${token}`}
+        className={WORD_CLASS}
+      >
+        {token}
+      </button>
+    )
+  }
+
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger asChild>
-        <button
-          type="button"
-          onClick={() => speak(gloss.word?.fr ?? token)}
-          className="decoration-primary/25 hover:bg-primary-soft hover:decoration-primary/60 cursor-pointer rounded-[3px] underline decoration-dotted decoration-1 underline-offset-[3px] transition-colors"
-        >
+        <button type="button" onClick={() => speak(gloss.word?.fr ?? token)} className={WORD_CLASS}>
           {token}
         </button>
       </PopoverPrimitive.Trigger>

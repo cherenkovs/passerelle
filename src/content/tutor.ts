@@ -1,3 +1,4 @@
+import { SCENARIOS_2 } from './tutor-2'
 import type { TutorScenario } from './types'
 
 /**
@@ -420,13 +421,17 @@ const chezLeMedecin: TutorScenario = {
   ],
 }
 
+/** Ordered by level, so the list reads as a progression. */
+const RANK: Record<string, number> = { A0: 0, A1: 1, A2: 2, B1: 3, B2: 4, C1: 5 }
+
 export const SCENARIOS: TutorScenario[] = [
   rencontre,
   auCafe,
   demanderChemin,
   parlerDeSoi,
   chezLeMedecin,
-]
+  ...SCENARIOS_2,
+].sort((a, b) => RANK[a.level] - RANK[b.level])
 
 export function getScenario(id: string) {
   return SCENARIOS.find((s) => s.id === id)
