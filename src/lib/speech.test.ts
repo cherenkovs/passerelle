@@ -91,10 +91,33 @@ describe('speakable', () => {
     expect(speakable('bonjour [bɔ̃.ʒuʁ]')).toBe('bonjour')
   })
 
-  it('speaks only the first of two alternatives', async () => {
+  it('speaks both alternatives, with the slash as a pause', async () => {
     const { speakable } = await import('./speech')
-    expect(speakable('content / contente')).toBe('content')
-    expect(speakable('ma sœur / mon frère')).toBe('ma sœur')
+    // Hearing the pair is the lesson: the silent -t comes back in the feminine.
+    expect(speakable('content / contente')).toBe('content, contente')
+    expect(speakable('ma sœur / mon frère')).toBe('ma sœur, mon frère')
+    expect(speakable('au / à la / aux')).toBe('au, à la, aux')
+  })
+
+  it('gives a shared verb to each pronoun in a conjugation row', async () => {
+    const { speakable } = await import('./speech')
+    // "il / elle a" means *il a / elle a*. Stopping at the slash left a bare
+    // "il" — the one row of the avoir table with no verb in it.
+    expect(speakable('il / elle a')).toBe('il a, elle a')
+    expect(speakable('ils / elles ont')).toBe('ils ont, elles ont')
+    expect(speakable('il / elle est')).toBe('il est, elle est')
+    // Nothing to share — both alternatives are whole.
+    expect(speakable('nous / vous')).toBe('nous, vous')
+    expect(speakable('il / elle')).toBe('il, elle')
+  })
+
+  it('never borrows a tail across unrelated phrases', async () => {
+    const { speakable } = await import('./speech')
+    // The trap: "Par exemple," is two words, but "Ainsi," is no pronoun and
+    // shares nothing with it. Borrowing would invent "Ainsi, exemple,".
+    expect(speakable('Ainsi, / Par exemple,')).toBe('Ainsi, Par exemple')
+    expect(speakable('il fait chaud / froid / beau')).toBe('il fait chaud, froid, beau')
+    expect(speakable('Bien à vous, / Bonne journée,')).toBe('Bien à vous, Bonne journée')
   })
 
   it('keeps a slash that is part of a word', async () => {

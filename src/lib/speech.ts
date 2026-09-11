@@ -120,31 +120,86 @@ export function cancelSpeech() {
  * heard the phrase, then a long stretch of the engine working through phonetic
  * symbols, which is where the "why is this taking so long" comes from.
  *
- * A slash separates alternatives ("content / contente"); only the first is
- * spoken, because "content slash contente" teaches nobody anything.
+ * A slash separates alternatives, which are read in turn with a pause between
+ * them — see `expandAlternatives`.
  */
 export function speakable(text: string) {
+  const cleaned = text
+    .replace(/\*+/g, '')
+    .replace(/^[❌✅]\s*/, '')
+    // An arrow becomes a pause, not a full stop. It used to truncate, which
+    // was right for "les amis → [le‿za.mi]" but wrong everywhere else: in an
+    // explanation like "De + Ukraine → d'Ukraine" the interesting half is the
+    // one after the arrow, and it was being silently cut off.
+    .replace(/\s*[→⟶⇒]\s*/g, ', ')
+    // IPA between brackets, plus the liaison undertie if it escaped them.
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/‿/g, ' ')
+    // "+" joins the parts of a formula — "ne + ДІЄСЛОВО + pas". A French
+    // voice reads it as the word *plus*, so the schema came out as
+    // "ne plus plus pas".
+    .replace(/[+=]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
   return (
-    text
-      .replace(/\*+/g, '')
-      .replace(/^[❌✅]\s*/, '')
-      // An arrow becomes a pause, not a full stop. It used to truncate, which
-      // was right for "les amis → [le‿za.mi]" but wrong everywhere else: in an
-      // explanation like "De + Ukraine → d'Ukraine" the interesting half is the
-      // one after the arrow, and it was being silently cut off.
-      .replace(/\s*[→⟶⇒]\s*/g, ', ')
-      // IPA between brackets, plus the liaison undertie if it escaped them.
-      .replace(/\[[^\]]*\]/g, '')
-      .replace(/‿/g, ' ')
-      // "+" joins the parts of a formula — "ne + ДІЄСЛОВО + pas". A French
-      // voice reads it as the word *plus*, so the schema came out as
-      // "ne plus plus pas".
-      .replace(/[+=]/g, ' ')
-      .split(' / ')[0]
-      .replace(/\s+/g, ' ')
+    expandAlternatives(cleaned)
+      // Joining alternatives can double up a comma when one already ended in
+      // one ("Bien à vous, / Bonne journée,").
+      .replace(/,\s*,/g, ',')
       .replace(/[,\s]+$/, '')
       .trim()
   )
+}
+
+/** French subject pronouns — a closed class, so this set is complete. */
+const SUBJECT_PRONOUNS = new Set([
+  'je',
+  "j'",
+  'tu',
+  'il',
+  'elle',
+  'on',
+  'nous',
+  'vous',
+  'ils',
+  'elles',
+])
+
+/**
+ * Read every alternative, not just the first.
+ *
+ * This used to stop at the slash, on the grounds that "content slash contente"
+ * teaches nobody anything. True of the symbol — but the remedy threw away half
+ * the content along with it. Hearing "content, contente" *is* the lesson: the
+ * silent final consonant comes back in the feminine. So the slash becomes a
+ * pause and both forms are spoken.
+ *
+ * One case needs more than a pause. "il / elle a" is a row of a conjugation
+ * table and means *il a / elle a* — the verb belongs to both pronouns. Stopping
+ * at the slash left a bare "il" with no verb at all, which is the one row of
+ * the table you could not hear. So a trailing form is handed to each pronoun in
+ * turn: "il a, elle a".
+ *
+ * That sharing applies only when every alternative but the last is a subject
+ * pronoun. Otherwise the slash is separating whole phrases with nothing in
+ * common, and borrowing a tail would invent text — "Ainsi, / Par exemple,"
+ * must not become "Ainsi, exemple,".
+ */
+function expandAlternatives(text: string) {
+  const parts = text.split(' / ')
+  if (parts.length < 2) return text
+
+  const last = parts[parts.length - 1].split(' ')
+  const leading = parts.slice(0, -1)
+  const sharesTail =
+    last.length > 1 &&
+    leading.every((p) => SUBJECT_PRONOUNS.has(p.toLowerCase().replace(/’/g, "'")))
+
+  if (!sharesTail) return parts.join(', ')
+
+  const tail = last.slice(1).join(' ')
+  return [...leading.map((p) => `${p} ${tail}`), parts[parts.length - 1]].join(', ')
 }
 
 /** Anything outside the Cyrillic alphabet, which in this app means French. */
