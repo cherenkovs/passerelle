@@ -260,12 +260,12 @@ describe('frenchIn', () => {
     // there was no way to hear it.
     expect(
       frenchIn("Je viens d'Ukraine. De + Ukraine → d'Ukraine, бо наступне слово з голосної."),
-    ).toBe("Je viens d'Ukraine. De + Ukraine, d'Ukraine")
+    ).toBe("Je viens d'Ukraine. De Ukraine, d'Ukraine")
   })
 
   it('keeps the half after an arrow instead of truncating there', async () => {
     const { speakable } = await import('./speech')
-    expect(speakable("De + Ukraine → d'Ukraine")).toBe("De + Ukraine, d'Ukraine")
+    expect(speakable("De + Ukraine → d'Ukraine")).toBe("De Ukraine, d'Ukraine")
   })
 
   it('still drops the IPA an arrow used to introduce', async () => {
@@ -304,5 +304,25 @@ describe('frenchIn', () => {
   it('ignores stray digits and symbols with no French around them', async () => {
     const { frenchIn } = await import('./speech')
     expect(frenchIn('Правило 80 % випадків.')).toBe('')
+  })
+})
+
+describe('symbols that are notation, not speech', () => {
+  it('does not read "+" as the word plus', async () => {
+    const { frenchIn } = await import('./speech')
+    // "Схема ne + дієслово + pas" came out of the speaker as "ne plus plus pas".
+    expect(frenchIn('Схема ne + дієслово + pas. Обидві частини обов’язкові.')).toBe('ne. pas.')
+  })
+
+  it('drops a stray symbol rather than pausing on it', async () => {
+    const { speakable } = await import('./speech')
+    expect(speakable("De + Ukraine → d'Ukraine")).toBe("De Ukraine, d'Ukraine")
+    expect(speakable('a = b')).toBe('a b')
+  })
+
+  it('still keeps the contrast a line exists to teach', async () => {
+    const { frenchIn } = await import('./speech')
+    // Two bare particles, but hearing "ne" against "n'" is the whole point.
+    expect(frenchIn("Якщо дієслово починається з голосної, ne скорочується до n':")).toBe("ne. n'")
   })
 })

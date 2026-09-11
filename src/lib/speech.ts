@@ -136,6 +136,10 @@ export function speakable(text: string) {
       // IPA between brackets, plus the liaison undertie if it escaped them.
       .replace(/\[[^\]]*\]/g, '')
       .replace(/‿/g, ' ')
+      // "+" joins the parts of a formula — "ne + ДІЄСЛОВО + pas". A French
+      // voice reads it as the word *plus*, so the schema came out as
+      // "ne plus plus pas".
+      .replace(/[+=]/g, ' ')
       .split(' / ')[0]
       .replace(/\s+/g, ' ')
       .replace(/[,\s]+$/, '')
@@ -164,6 +168,10 @@ export function frenchIn(text: string): string {
   let run: string[] = []
 
   const flush = () => {
+    // A token with no letters at all is punctuation or a stray symbol: there is
+    // nothing in it to pronounce, and leaving it in gives the voice something
+    // to stumble over between the words that matter.
+    run = run.filter((w) => /\p{L}/u.test(w))
     if (run.some((w) => /\p{Script=Latin}/u.test(w))) {
       // Trailing punctuation belonged to the Ukrainian that has just been cut
       // away, so it would only make the voice pause on nothing.

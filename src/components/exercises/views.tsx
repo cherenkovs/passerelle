@@ -61,7 +61,14 @@ function Question({ children, className }: { children: React.ReactNode; classNam
   )
 }
 
-/** Choice button shared by MCQ and listening. */
+/**
+ * Choice button shared by MCQ and listening.
+ *
+ * A French option is also an audio button: picking «Je n'aime pas le café»
+ * should let you *hear* the elision you just chose, and hear it again on every
+ * tap. So once the answer is locked the button stays live — `locked` stops the
+ * answer changing, which is not the same thing as the button going dead.
+ */
 function Choice({
   label,
   index,
@@ -69,7 +76,7 @@ function Choice({
   state,
   french,
   onClick,
-  disabled,
+  locked,
 }: {
   label: string
   index: number
@@ -77,13 +84,22 @@ function Choice({
   state: 'idle' | 'correct' | 'wrong'
   french?: boolean
   onClick: () => void
-  disabled?: boolean
+  locked?: boolean
 }) {
+  const { speak } = useSpeak()
+  const inert = locked && !french
+
+  const handleClick = () => {
+    if (french) speak(label)
+    if (!locked) onClick()
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={handleClick}
+      disabled={inert}
+      aria-label={french ? `${label} — прослухати` : undefined}
       className={cn(
         'group flex w-full items-center gap-3.5 rounded-2xl border-2 p-4 text-left transition-all',
         'disabled:cursor-default',
@@ -210,7 +226,7 @@ export function McqView({ exercise, value, onChange, outcome }: ViewProps<McqExe
             selected={chosen === i}
             state={choiceState(i, exercise.answer, chosen, outcome)}
             french={exercise.optionsAreFrench}
-            disabled={Boolean(outcome)}
+            locked={Boolean(outcome)}
             onClick={() => onChange(i)}
           />
         ))}
@@ -272,7 +288,7 @@ export function ListenView({ exercise, value, onChange, outcome }: ViewProps<Lis
             index={i}
             selected={chosen === i}
             state={choiceState(i, exercise.answer, chosen, outcome)}
-            disabled={Boolean(outcome)}
+            locked={Boolean(outcome)}
             onClick={() => onChange(i)}
           />
         ))}
@@ -356,6 +372,7 @@ export function ClozeView({
   onSubmit,
 }: ViewProps<ClozeExercise>) {
   const str = typeof value === 'string' ? value : ''
+  const { speak } = useSpeak()
   const parts = exercise.sentence.split(/(_{2,})/)
   const blanks = parts.filter((p) => /^_{2,}$/.test(p)).length
 
@@ -422,8 +439,14 @@ export function ClozeView({
               <button
                 key={opt}
                 type="button"
-                disabled={Boolean(outcome)}
-                onClick={() => onChange(opt)}
+                aria-label={`${opt} — прослухати`}
+                onClick={() => {
+                  // Gap-fill chips are always French, so each tap says the word
+                  // — including after the answer is locked, when hearing the
+                  // right form next to the one you picked is the lesson.
+                  speak(opt)
+                  if (!outcome) onChange(opt)
+                }}
                 className={cn(
                   'fr rounded-xl border-2 px-5 py-3 text-[15px] font-medium transition-all',
                   !outcome &&
@@ -531,6 +554,7 @@ export function DictationView({
 
 export function WordBankView({ exercise, value, onChange, outcome }: ViewProps<WordBankExercise>) {
   const chosen = Array.isArray(value) ? value : []
+  const { speak } = useSpeak()
 
   const bank = useMemo(() => {
     const words = exercise.answer.split(/\s+/).filter(Boolean)
@@ -542,6 +566,9 @@ export function WordBankView({ exercise, value, onChange, outcome }: ViewProps<W
 
   const add = (i: number) => {
     if (outcome || used.includes(i)) return
+    // Every tap says the word: assembling a sentence out of silent blocks
+    // teaches its shape and nothing about how it sounds.
+    speak(bank[i])
     setUsed((u) => [...u, i])
     onChange([...chosen, bank[i]])
   }
