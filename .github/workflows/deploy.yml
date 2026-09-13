@@ -27,13 +27,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # Vite 8 needs a recent Node, and the runner's default has been
           # older than that. Pinned in .node-version so CI and this machine
-          # cannot drift apart.
+          # cannot drift apart. The action majors above are pinned for a
+          # different reason: older ones bundle a Node 20 runtime, which
+          # GitHub has deprecated and now force-runs on 24 with a warning.
           node-version-file: .node-version
           cache: npm
 
@@ -46,13 +48,15 @@ jobs:
 
       - run: npm run build
 
-      - uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on for the repository the first time this runs, so
-          # there is no separate switch to find in Settings.
-          enablement: true
+      # No `enablement: true` here, deliberately. It looks like it would save
+      # the one-time trip to Settings, but the workflow token may deploy to
+      # Pages and may not create the site, so it fails with "Resource not
+      # accessible by integration" and takes the whole run with it. Pages has
+      # to be switched on once by hand (Settings > Pages > Source: GitHub
+      # Actions); after that this step just finds the existing site.
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -64,4 +68,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
