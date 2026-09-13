@@ -42,8 +42,8 @@ export function SyncCard() {
   const busy = status === 'connecting' || status === 'syncing'
 
   return (
-    <div className="border-line mt-5 border-t pt-4 text-[12.5px] leading-relaxed">
-      <p className="text-fg font-medium">Синхронізація між пристроями</p>
+    <div className="text-[13px] leading-relaxed">
+      <p className="text-fg text-[14px] font-semibold">Синхронізація між пристроями</p>
 
       {status === 'off' && (
         <>

@@ -205,17 +205,6 @@ type LearnerState = {
   profiles: Profile[]
   activeId: string | null
 
-  // --- backup
-  // App-level, not per-profile: the exported file carries every profile, so
-  // "when did we last write one" is a property of the browser, not a learner.
-  lastBackupAt: number | null
-  lastBackupXp: number
-  backupSnoozedUntil: number | null
-  /** Record that a file has just been written, and how much it covers. */
-  markBackedUp: () => void
-  /** "Later" — stop asking for a few days rather than until the next XP. */
-  snoozeBackup: () => void
-
   // --- profiles
   createProfile: (name: string, courseId: string, gender?: Gender) => string
   switchProfile: (id: string) => void
@@ -299,19 +288,6 @@ export const useLearner = create<LearnerState>()(
     (set, get) => ({
       profiles: [],
       activeId: null,
-
-      lastBackupAt: null,
-      lastBackupXp: 0,
-      backupSnoozedUntil: null,
-
-      markBackedUp: () =>
-        set((st) => ({
-          lastBackupAt: Date.now(),
-          lastBackupXp: st.profiles.reduce((sum, p) => sum + p.xp, 0),
-          backupSnoozedUntil: null,
-        })),
-
-      snoozeBackup: () => set(() => ({ backupSnoozedUntil: Date.now() + 3 * 24 * 60 * 60 * 1000 })),
 
       createProfile: (name, courseId, gender = 'm') => {
         const p = { ...emptyProfile(name, courseId), gender }

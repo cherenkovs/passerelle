@@ -36,10 +36,8 @@ import {
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
-import { AutoBackupCard } from '@/components/common/auto-backup'
 import { SyncCard } from '@/components/common/sync-card'
-import { daysSinceBackup, downloadBackup } from '@/lib/backup'
-import { storageStatus, type StorageStatus } from '@/lib/storage'
+import { downloadBackup } from '@/lib/backup'
 import { cn } from '@/lib/utils'
 import { LEARNER_VERSION, useActiveProfile, useLearner, type Profile } from '@/store/learner'
 import { useSettings, type Theme } from '@/store/settings'
@@ -55,13 +53,6 @@ export function SettingsPage() {
   const deleteProfile = useLearner((s) => s.deleteProfile)
   const resetProgress = useLearner((s) => s.resetProgress)
   const importProfiles = useLearner((s) => s.importProfiles)
-  const markBackedUp = useLearner((s) => s.markBackedUp)
-  const lastBackupAt = useLearner((s) => s.lastBackupAt)
-  const [storage, setStorage] = useState<StorageStatus | null>(null)
-
-  useEffect(() => {
-    void storageStatus().then(setStorage)
-  }, [lastBackupAt])
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [confirm, setConfirm] = useState<null | 'reset' | 'delete'>(null)
@@ -74,12 +65,7 @@ export function SettingsPage() {
 
   if (!profile) return null
 
-  const exportData = () => {
-    downloadBackup(profiles, LEARNER_VERSION)
-    // Same bookkeeping as the dashboard reminder, or exporting here would
-    // leave it still asking for a file that has just been written.
-    markBackedUp()
-  }
+  const exportData = () => downloadBackup(profiles, LEARNER_VERSION)
 
   const importData = (file: File) => {
     const reader = new FileReader()
@@ -359,13 +345,21 @@ export function SettingsPage() {
         </Card>
       </section>
 
+      {/* Account */}
+      <section>
+        <SectionTitle>Акаунт</SectionTitle>
+        <Card className="p-5">
+          <SyncCard />
+        </Card>
+      </section>
+
       {/* Data */}
       <section>
         <SectionTitle>Дані</SectionTitle>
         <Card className="p-5">
           <p className="text-fg-muted text-[13.5px] leading-relaxed text-pretty">
-            Увесь прогрес зберігається лише у твоєму браузері — жодних серверів і жодних акаунтів.
-            Тому варто час від часу робити резервну копію: файл можна перенести на інший пристрій.
+            Прогрес можна вивантажити у файл — щоб мати його поза застосунком або перенести туди, де
+            немає входу через Google.
           </p>
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Button variant="surface" onClick={exportData}>
@@ -391,35 +385,6 @@ export function SettingsPage() {
             <Button variant="ghost" className="text-danger" onClick={() => setConfirm('reset')}>
               <Trash2 /> Скинути прогрес
             </Button>
-          </div>
-
-          <div className="border-line mt-5 border-t pt-4 text-[12.5px] leading-relaxed">
-            <p className="text-fg-muted">
-              <span className="text-fg font-medium">Остання копія: </span>
-              {(() => {
-                const d = daysSinceBackup({
-                  lastBackupAt,
-                  lastBackupXp: 0,
-                  snoozedUntil: null,
-                })
-                if (d === null) return 'ще не робив'
-                return d === 0 ? 'сьогодні' : `${d} дн. тому`
-              })()}
-            </p>
-
-            <SyncCard />
-
-            <AutoBackupCard />
-
-            {storage?.supported && (
-              <p className="text-fg-subtle mt-1.5 text-pretty">
-                {storage.persisted
-                  ? 'Браузер позначив дані як постійні — він не видалить їх сам, коли забракне місця. '
-                  : 'Браузер може видалити дані, якщо йому забракне місця. '}
-                Але жодне сховище не переживе очищення браузера вручну чи програмою-чистильником —
-                від цього рятує лише експортований файл.
-              </p>
-            )}
           </div>
         </Card>
       </section>

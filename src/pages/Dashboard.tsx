@@ -9,7 +9,6 @@ import {
   Target,
   Trophy,
 } from 'lucide-react'
-import { BackupNudge } from '@/components/common/backup-nudge'
 import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { SpeakButton } from '@/components/common/speak'
@@ -72,8 +71,6 @@ export function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <BackupNudge />
-
       {/* Hero */}
       <section>
         <div className="mb-1 flex items-center gap-2">
