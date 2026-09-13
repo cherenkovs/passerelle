@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { requestPersistence } from '@/lib/storage'
+import { useAutoBackup } from '@/lib/use-autobackup'
 import { CoursePage } from '@/pages/Course'
 import { Dashboard } from '@/pages/Dashboard'
 import { ExamPage } from '@/pages/Exam'
@@ -44,6 +45,8 @@ function RequireProfile({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useAutoBackup()
+
   useEffect(() => {
     // Ask the browser not to evict this origin's data on its own when space
     // runs short. It does nothing against a deliberate clear-out — see

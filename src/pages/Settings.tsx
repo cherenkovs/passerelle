@@ -36,6 +36,7 @@ import {
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
+import { AutoBackupCard } from '@/components/common/auto-backup'
 import { daysSinceBackup, downloadBackup } from '@/lib/backup'
 import { storageStatus, type StorageStatus } from '@/lib/storage'
 import { cn } from '@/lib/utils'
@@ -401,6 +402,8 @@ export function SettingsPage() {
                 return d === 0 ? 'сьогодні' : `${d} дн. тому`
               })()}
             </p>
+
+            <AutoBackupCard />
 
             {storage?.supported && (
               <p className="text-fg-subtle mt-1.5 text-pretty">
