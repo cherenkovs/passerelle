@@ -1,8 +1,9 @@
+import { Loader2 } from 'lucide-react'
 import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { requestPersistence } from '@/lib/storage'
-import { initSync } from '@/lib/sync'
+import { initSync, useSync } from '@/lib/sync'
 import { CoursePage } from '@/pages/Course'
 import { Dashboard } from '@/pages/Dashboard'
 import { ExamPage } from '@/pages/Exam'
@@ -38,7 +39,22 @@ function PageFallback() {
 /** Everything behind the app shell requires a learner profile. */
 function RequireProfile({ children }: { children: React.ReactNode }) {
   const hasProfile = useLearner((s) => s.profiles.some((p) => p.id === s.activeId))
+  const restoring = useSync((s) => s.restoring)
   const location = useLocation()
+
+  // The account's data is still arriving. Sending them to onboarding here would
+  // mean a returning learner is asked to set up a course they already have,
+  // every time they open the app.
+  if (restoring && !hasProfile) {
+    return (
+      <div className="bg-bg grid min-h-[100dvh] place-items-center">
+        <div className="text-fg-muted flex flex-col items-center gap-3">
+          <Loader2 className="size-6 animate-spin" />
+          <p className="text-sm">Відновлюю твій прогрес…</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!hasProfile) return <Navigate to="/onboarding" replace state={{ from: location }} />
   return <AppShell>{children}</AppShell>

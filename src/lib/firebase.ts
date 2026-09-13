@@ -55,7 +55,18 @@ async function init() {
     import('firebase/firestore'),
   ])
   const app = initializeApp(config)
-  return { app, auth, firestore, authInstance: auth.getAuth(app), db: firestore.getFirestore(app) }
+
+  // Firestore keeps its own cache and queues writes made offline. With the
+  // profile no longer mirrored into localStorage, this is what lets a lesson
+  // on a train finish and reach the account when the signal comes back.
+  // Multi-tab so two open tabs share one cache instead of fighting over it.
+  const db = firestore.initializeFirestore(app, {
+    localCache: firestore.persistentLocalCache({
+      tabManager: firestore.persistentMultipleTabManager(),
+    }),
+  })
+
+  return { app, auth, firestore, authInstance: auth.getAuth(app), db }
 }
 
 export function loadFirebase() {

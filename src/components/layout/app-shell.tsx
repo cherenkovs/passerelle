@@ -10,6 +10,7 @@ import {
   Home,
   Layers,
   LineChart,
+  LogOut,
   type LucideIcon,
   Menu,
   MessagesSquare,
@@ -26,6 +27,7 @@ import { Wordmark } from '@/components/common/misc'
 import { Button } from '@/components/ui/button'
 import { cn, pluralUk, todayKey } from '@/lib/utils'
 import { SignInPill } from '@/components/common/signin-pill'
+import { signOut, useSync } from '@/lib/sync'
 import { useLearner, useActiveProfile } from '@/store/learner'
 import { useSettings } from '@/store/settings'
 
@@ -282,6 +284,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
 }
 
 function ProfileMenu() {
+  const email = useSync((s) => s.email)
+  const signedIn = useSync((s) => s.status !== 'off')
   const profiles = useLearner((s) => s.profiles)
   const activeId = useLearner((s) => s.activeId)
   const switchProfile = useLearner((s) => s.switchProfile)
@@ -338,6 +342,21 @@ function ProfileMenu() {
               <Settings className="size-4" /> Налаштування
             </Link>
           </DropdownMenu.Item>
+
+          {signedIn && (
+            <>
+              <DropdownMenu.Separator className="bg-line my-1.5 h-px" />
+              <DropdownMenu.Label className="text-fg-subtle truncate px-2.5 pb-1 text-[11px]">
+                {email}
+              </DropdownMenu.Label>
+              <DropdownMenu.Item
+                onSelect={() => void signOut()}
+                className="text-danger data-[highlighted]:bg-danger-soft flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none"
+              >
+                <LogOut className="size-4" /> Вийти
+              </DropdownMenu.Item>
+            </>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

@@ -1,5 +1,4 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create, type StateCreator } from 'zustand'
 import type { Gender } from '@/lib/agreement'
 import { createCard, isDue, review, sortForSession, type Rating, type SrsCard } from '@/lib/srs'
 import { daysBetween, todayKey, uid } from '@/lib/utils'
@@ -283,321 +282,307 @@ function bumpDay(p: Profile, xp: number, answered: number, correct: number): Pro
   }
 }
 
-export const useLearner = create<LearnerState>()(
-  persist(
-    (set, get) => ({
-      profiles: [],
-      activeId: null,
+/**
+ * The learner's data lives in their account, not in this browser.
+ *
+ * Nothing here is persisted locally: on load the profile is read from the
+ * signed-in account, which is what makes one account on two devices mean one
+ * set of progress rather than two that drift apart. Working offline still
+ * works — Firestore keeps its own cache and replays writes on reconnect — but
+ * this app no longer keeps a second copy of its own to fall out of step.
+ */
+export const useLearner = create<LearnerState>()(((set, get) => ({
+  profiles: [],
+  activeId: null,
 
-      createProfile: (name, courseId, gender = 'm') => {
-        const p = { ...emptyProfile(name, courseId), gender }
-        set((s) => ({ profiles: [...s.profiles, p], activeId: p.id }))
-        return p.id
-      },
+  createProfile: (name, courseId, gender = 'm') => {
+    const p = { ...emptyProfile(name, courseId), gender }
+    set((s) => ({ profiles: [...s.profiles, p], activeId: p.id }))
+    return p.id
+  },
 
-      switchProfile: (id) => set({ activeId: id }),
+  switchProfile: (id) => set({ activeId: id }),
 
-      updateProfile: (patch) => set((s) => patchActive(s, (p) => ({ ...p, ...patch }))),
+  updateProfile: (patch) => set((s) => patchActive(s, (p) => ({ ...p, ...patch }))),
 
-      applyPlacement: (courseId, moduleIndex) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            courseId,
-            // Keep the furthest placement: retaking the test and doing worse on
-            // a bad day shouldn't re-lock modules the learner already opened.
-            startModule: {
-              ...p.startModule,
-              [courseId]: Math.max(p.startModule?.[courseId] ?? 0, moduleIndex),
-            },
-          })),
-        ),
+  applyPlacement: (courseId, moduleIndex) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        courseId,
+        // Keep the furthest placement: retaking the test and doing worse on
+        // a bad day shouldn't re-lock modules the learner already opened.
+        startModule: {
+          ...p.startModule,
+          [courseId]: Math.max(p.startModule?.[courseId] ?? 0, moduleIndex),
+        },
+      })),
+    ),
 
-      deleteProfile: (id) =>
-        set((s) => {
-          const profiles = s.profiles.filter((p) => p.id !== id)
-          return {
-            profiles,
-            activeId: s.activeId === id ? (profiles[0]?.id ?? null) : s.activeId,
-          }
-        }),
-
-      resetProgress: () =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...emptyProfile(p.name, p.courseId),
-            id: p.id,
-            emoji: p.emoji,
-            createdAt: p.createdAt,
-          })),
-        ),
-
-      addXp: (amount, answered = 0, correct = 0) =>
-        set((s) => patchActive(s, (p) => bumpDay(p, amount, answered, correct))),
-
-      completeLesson: (lessonId, score) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            const prev = p.lessons[lessonId]
-            return {
-              ...p,
-              lessons: {
-                ...p.lessons,
-                [lessonId]: {
-                  completed: true,
-                  bestScore: Math.max(prev?.bestScore ?? 0, score),
-                  attempts: (prev?.attempts ?? 0) + 1,
-                  lastAt: new Date().toISOString(),
-                },
-              },
-            }
-          }),
-        ),
-
-      recordQuiz: (quizId, score, pass) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            const prev = p.quizzes[quizId]
-            return {
-              ...p,
-              quizzes: {
-                ...p.quizzes,
-                [quizId]: {
-                  bestScore: Math.max(prev?.bestScore ?? 0, score),
-                  passed: (prev?.passed ?? false) || score >= pass,
-                  attempts: (prev?.attempts ?? 0) + 1,
-                  lastAt: new Date().toISOString(),
-                },
-              },
-            }
-          }),
-        ),
-
-      recordExam: (examId, score, pass) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            const prev = p.exams[examId]
-            return {
-              ...p,
-              exams: {
-                ...p.exams,
-                [examId]: {
-                  bestScore: Math.max(prev?.bestScore ?? 0, score),
-                  passed: (prev?.passed ?? false) || score >= pass,
-                  attempts: (prev?.attempts ?? 0) + 1,
-                  lastAt: new Date().toISOString(),
-                },
-              },
-            }
-          }),
-        ),
-
-      saveWriting: (taskId, text, done) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            writings: {
-              ...p.writings,
-              [taskId]: {
-                text,
-                updatedAt: new Date().toISOString(),
-                // Finishing is sticky: coming back to reread your own text
-                // must not un-finish the task.
-                done: done ?? p.writings?.[taskId]?.done ?? false,
-              },
-            },
-          })),
-        ),
-
-      markStory: (id) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            stories: { ...p.stories, [id]: new Date().toISOString() },
-          })),
-        ),
-
-      markVideo: (id) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            videos: { ...p.videos, [id]: new Date().toISOString() },
-          })),
-        ),
-
-      recordScenario: (id, score) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            scenarios: {
-              ...p.scenarios,
-              [id]: {
-                best: Math.max(p.scenarios[id]?.best ?? 0, score),
-                at: new Date().toISOString(),
-              },
-            },
-          })),
-        ),
-
-      ensureCards: (wordIds) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            const srs = { ...p.srs }
-            let changed = false
-            for (const id of wordIds) {
-              if (!srs[id]) {
-                srs[id] = createCard(id)
-                changed = true
-              }
-            }
-            return changed ? { ...p, srs } : p
-          }),
-        ),
-
-      reviewCard: (wordId, rating) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            const card = p.srs[wordId] ?? createCard(wordId)
-            return { ...p, srs: { ...p.srs, [wordId]: review(card, rating) } }
-          }),
-        ),
-
-      dueCardIds: () => {
-        const p = get().profiles.find((x) => x.id === get().activeId)
-        if (!p) return []
-        const today = todayKey()
-        return sortForSession(Object.values(p.srs).filter((c) => isDue(c, today))).map((c) => c.id)
-      },
-
-      toggleSavedWord: (wordId) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            savedWords: p.savedWords.includes(wordId)
-              ? p.savedWords.filter((w) => w !== wordId)
-              : [...p.savedWords, wordId],
-          })),
-        ),
-
-      addMistake: (m) =>
-        set((s) =>
-          patchActive(s, (p) => {
-            // Keep one entry per exercise — the newest wins.
-            const rest = p.mistakes.filter((x) => x.exerciseId !== m.exerciseId)
-            const entry: Mistake = { ...m, id: uid('mk'), at: new Date().toISOString() }
-            return { ...p, mistakes: [entry, ...rest].slice(0, 300) }
-          }),
-        ),
-
-      resolveMistake: (id) =>
-        set((s) =>
-          patchActive(s, (p) => ({ ...p, mistakes: p.mistakes.filter((m) => m.id !== id) })),
-        ),
-
-      // Matched on exerciseId, not on the mistake's own id: the runner re-adds a
-      // mistake (with a fresh id) whenever it is missed again during the very
-      // session that is trying to clear it, so ids captured beforehand go stale.
-      resolveMistakesFor: (exerciseIds) => {
-        const done = new Set(exerciseIds)
-        if (!done.size) return
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            mistakes: p.mistakes.filter((m) => !done.has(m.exerciseId)),
-          })),
-        )
-      },
-
-      clearMistakes: () => set((s) => patchActive(s, (p) => ({ ...p, mistakes: [] }))),
-
-      addNote: (title, body) => {
-        const id = uid('n')
-        const now = new Date().toISOString()
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            notes: [{ id, title, body, createdAt: now, updatedAt: now }, ...p.notes],
-          })),
-        )
-        return id
-      },
-
-      updateNote: (id, patch) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            notes: p.notes.map((n) =>
-              n.id === id ? { ...n, ...patch, updatedAt: new Date().toISOString() } : n,
-            ),
-          })),
-        ),
-
-      deleteNote: (id) =>
-        set((s) => patchActive(s, (p) => ({ ...p, notes: p.notes.filter((n) => n.id !== id) }))),
-
-      addCustomWord: (fr, uk, note) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            customWords: [
-              { id: uid('cw'), fr, uk, note, createdAt: new Date().toISOString() },
-              ...p.customWords,
-            ],
-          })),
-        ),
-
-      deleteCustomWord: (id) =>
-        set((s) =>
-          patchActive(s, (p) => ({ ...p, customWords: p.customWords.filter((w) => w.id !== id) })),
-        ),
-
-      addCustomVideo: (v) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            customVideos: [
-              { ...v, id: uid('cv'), createdAt: new Date().toISOString() },
-              ...p.customVideos,
-            ],
-          })),
-        ),
-
-      deleteCustomVideo: (id) =>
-        set((s) =>
-          patchActive(s, (p) => ({
-            ...p,
-            customVideos: p.customVideos.filter((v) => v.id !== id),
-          })),
-        ),
-
-      importProfiles: (incoming) => {
-        // Normalised, not trusted: a backup can predate half these fields.
-        const profiles = (Array.isArray(incoming) ? incoming : [])
-          .map(normalizeProfile)
-          .filter((p): p is Profile => p !== null)
-        if (!profiles.length) return
-        set(() => ({ profiles, activeId: profiles[0].id }))
-      },
+  deleteProfile: (id) =>
+    set((s) => {
+      const profiles = s.profiles.filter((p) => p.id !== id)
+      return {
+        profiles,
+        activeId: s.activeId === id ? (profiles[0]?.id ?? null) : s.activeId,
+      }
     }),
-    {
-      name: 'passerelle:learner',
-      version: LEARNER_VERSION,
-      migrate: (persisted) => {
-        // Every version bump so far has only *added* fields, so normalising is
-        // the whole migration — and sharing it with import keeps the two paths
-        // from drifting apart again.
-        const s = persisted as { profiles?: unknown[]; activeId?: string | null }
-        const profiles = (s.profiles ?? [])
-          .map(normalizeProfile)
-          .filter((p): p is Profile => p !== null)
-        const activeId = profiles.some((p) => p.id === s.activeId)
-          ? s.activeId
-          : (profiles[0]?.id ?? null)
-        return { ...(persisted as LearnerState), profiles, activeId }
-      },
-    },
-  ),
-)
+
+  resetProgress: () =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...emptyProfile(p.name, p.courseId),
+        id: p.id,
+        emoji: p.emoji,
+        createdAt: p.createdAt,
+      })),
+    ),
+
+  addXp: (amount, answered = 0, correct = 0) =>
+    set((s) => patchActive(s, (p) => bumpDay(p, amount, answered, correct))),
+
+  completeLesson: (lessonId, score) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        const prev = p.lessons[lessonId]
+        return {
+          ...p,
+          lessons: {
+            ...p.lessons,
+            [lessonId]: {
+              completed: true,
+              bestScore: Math.max(prev?.bestScore ?? 0, score),
+              attempts: (prev?.attempts ?? 0) + 1,
+              lastAt: new Date().toISOString(),
+            },
+          },
+        }
+      }),
+    ),
+
+  recordQuiz: (quizId, score, pass) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        const prev = p.quizzes[quizId]
+        return {
+          ...p,
+          quizzes: {
+            ...p.quizzes,
+            [quizId]: {
+              bestScore: Math.max(prev?.bestScore ?? 0, score),
+              passed: (prev?.passed ?? false) || score >= pass,
+              attempts: (prev?.attempts ?? 0) + 1,
+              lastAt: new Date().toISOString(),
+            },
+          },
+        }
+      }),
+    ),
+
+  recordExam: (examId, score, pass) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        const prev = p.exams[examId]
+        return {
+          ...p,
+          exams: {
+            ...p.exams,
+            [examId]: {
+              bestScore: Math.max(prev?.bestScore ?? 0, score),
+              passed: (prev?.passed ?? false) || score >= pass,
+              attempts: (prev?.attempts ?? 0) + 1,
+              lastAt: new Date().toISOString(),
+            },
+          },
+        }
+      }),
+    ),
+
+  saveWriting: (taskId, text, done) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        writings: {
+          ...p.writings,
+          [taskId]: {
+            text,
+            updatedAt: new Date().toISOString(),
+            // Finishing is sticky: coming back to reread your own text
+            // must not un-finish the task.
+            done: done ?? p.writings?.[taskId]?.done ?? false,
+          },
+        },
+      })),
+    ),
+
+  markStory: (id) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        stories: { ...p.stories, [id]: new Date().toISOString() },
+      })),
+    ),
+
+  markVideo: (id) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        videos: { ...p.videos, [id]: new Date().toISOString() },
+      })),
+    ),
+
+  recordScenario: (id, score) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        scenarios: {
+          ...p.scenarios,
+          [id]: {
+            best: Math.max(p.scenarios[id]?.best ?? 0, score),
+            at: new Date().toISOString(),
+          },
+        },
+      })),
+    ),
+
+  ensureCards: (wordIds) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        const srs = { ...p.srs }
+        let changed = false
+        for (const id of wordIds) {
+          if (!srs[id]) {
+            srs[id] = createCard(id)
+            changed = true
+          }
+        }
+        return changed ? { ...p, srs } : p
+      }),
+    ),
+
+  reviewCard: (wordId, rating) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        const card = p.srs[wordId] ?? createCard(wordId)
+        return { ...p, srs: { ...p.srs, [wordId]: review(card, rating) } }
+      }),
+    ),
+
+  dueCardIds: () => {
+    const p = get().profiles.find((x) => x.id === get().activeId)
+    if (!p) return []
+    const today = todayKey()
+    return sortForSession(Object.values(p.srs).filter((c) => isDue(c, today))).map((c) => c.id)
+  },
+
+  toggleSavedWord: (wordId) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        savedWords: p.savedWords.includes(wordId)
+          ? p.savedWords.filter((w) => w !== wordId)
+          : [...p.savedWords, wordId],
+      })),
+    ),
+
+  addMistake: (m) =>
+    set((s) =>
+      patchActive(s, (p) => {
+        // Keep one entry per exercise — the newest wins.
+        const rest = p.mistakes.filter((x) => x.exerciseId !== m.exerciseId)
+        const entry: Mistake = { ...m, id: uid('mk'), at: new Date().toISOString() }
+        return { ...p, mistakes: [entry, ...rest].slice(0, 300) }
+      }),
+    ),
+
+  resolveMistake: (id) =>
+    set((s) => patchActive(s, (p) => ({ ...p, mistakes: p.mistakes.filter((m) => m.id !== id) }))),
+
+  // Matched on exerciseId, not on the mistake's own id: the runner re-adds a
+  // mistake (with a fresh id) whenever it is missed again during the very
+  // session that is trying to clear it, so ids captured beforehand go stale.
+  resolveMistakesFor: (exerciseIds) => {
+    const done = new Set(exerciseIds)
+    if (!done.size) return
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        mistakes: p.mistakes.filter((m) => !done.has(m.exerciseId)),
+      })),
+    )
+  },
+
+  clearMistakes: () => set((s) => patchActive(s, (p) => ({ ...p, mistakes: [] }))),
+
+  addNote: (title, body) => {
+    const id = uid('n')
+    const now = new Date().toISOString()
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        notes: [{ id, title, body, createdAt: now, updatedAt: now }, ...p.notes],
+      })),
+    )
+    return id
+  },
+
+  updateNote: (id, patch) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        notes: p.notes.map((n) =>
+          n.id === id ? { ...n, ...patch, updatedAt: new Date().toISOString() } : n,
+        ),
+      })),
+    ),
+
+  deleteNote: (id) =>
+    set((s) => patchActive(s, (p) => ({ ...p, notes: p.notes.filter((n) => n.id !== id) }))),
+
+  addCustomWord: (fr, uk, note) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        customWords: [
+          { id: uid('cw'), fr, uk, note, createdAt: new Date().toISOString() },
+          ...p.customWords,
+        ],
+      })),
+    ),
+
+  deleteCustomWord: (id) =>
+    set((s) =>
+      patchActive(s, (p) => ({ ...p, customWords: p.customWords.filter((w) => w.id !== id) })),
+    ),
+
+  addCustomVideo: (v) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        customVideos: [
+          { ...v, id: uid('cv'), createdAt: new Date().toISOString() },
+          ...p.customVideos,
+        ],
+      })),
+    ),
+
+  deleteCustomVideo: (id) =>
+    set((s) =>
+      patchActive(s, (p) => ({
+        ...p,
+        customVideos: p.customVideos.filter((v) => v.id !== id),
+      })),
+    ),
+
+  importProfiles: (incoming) => {
+    // Normalised, not trusted: a backup can predate half these fields.
+    const profiles = (Array.isArray(incoming) ? incoming : [])
+      .map(normalizeProfile)
+      .filter((p): p is Profile => p !== null)
+    if (!profiles.length) return
+    set(() => ({ profiles, activeId: profiles[0].id }))
+  },
+})) as StateCreator<LearnerState>)
 
 /* ------------------------------------------------------------------ *
  * Selectors

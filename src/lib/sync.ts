@@ -25,6 +25,15 @@ type SyncState = {
   email: string | null
   lastSyncedAt: number | null
   error: string | null
+  /**
+   * True while the account's data is on its way in.
+   *
+   * Nothing is kept in this browser any more, so a reload starts with no
+   * profile at all. Without this the router would see "no profile" and bounce
+   * a signed-in learner to onboarding every single time, a fraction of a
+   * second before their course arrived.
+   */
+  restoring: boolean
 }
 
 export const useSync = create<SyncState>(() => ({
@@ -32,6 +41,9 @@ export const useSync = create<SyncState>(() => ({
   email: null,
   lastSyncedAt: null,
   error: null,
+  // Set straight away for a browser that has signed in before, so the very
+  // first render already knows to wait rather than redirect.
+  restoring: wasSignedIn(),
 }))
 
 /** Long enough that a lesson's XP ticks become one write, short enough to feel live. */
@@ -69,6 +81,8 @@ async function push() {
       updatedAt: fb.firestore.serverTimestamp(),
     })
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
+    // Now it is in the account, the browser copy can go.
+    dropLegacyLocalData()
   } catch (e) {
     useSync.setState({
       status: 'error',
@@ -118,9 +132,15 @@ async function startSyncing() {
       // restart the push cycle for nothing.
       if (snap.metadata.hasPendingWrites) return
       applyRemote(snap.data()?.profiles)
-      useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
+      // Whatever the account holds has now arrived, including nothing at all.
+      useSync.setState({
+        status: 'synced',
+        lastSyncedAt: Date.now(),
+        error: null,
+        restoring: false,
+      })
     },
-    (e) => useSync.setState({ status: 'error', error: e.message }),
+    (e) => useSync.setState({ status: 'error', error: e.message, restoring: false }),
   )
 
   stopStore?.()
@@ -233,7 +253,57 @@ export async function signOut(): Promise<void> {
   stopSnapshot = stopStore = null
   await fb.auth.signOut(fb.authInstance)
   rememberSignedIn(false)
-  useSync.setState({ status: 'off', email: null, lastSyncedAt: null, error: null })
+  useSync.setState({
+    status: 'off',
+    email: null,
+    lastSyncedAt: null,
+    error: null,
+    restoring: false,
+  })
+  // The store is memory-only now, so signing out clears the data with it.
+  useLearner.setState({ profiles: [], activeId: null })
+}
+
+const LEGACY_KEY = 'passerelle:learner'
+
+/**
+ * Take in progress left by the version that stored profiles in this browser.
+ *
+ * It is read into memory on startup and only deleted once it has been pushed
+ * to the account, never before: someone who has not signed in yet still has
+ * their course, and the key is cleared the moment there is somewhere safer for
+ * it to live. Dropping it on sight would have wiped whatever had not synced.
+ */
+export function adoptLegacyLocalData(): void {
+  try {
+    const raw = localStorage.getItem(LEGACY_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as { state?: { profiles?: unknown[]; activeId?: string | null } }
+    const profiles = (parsed.state?.profiles ?? [])
+      .map(normalizeProfile)
+      .filter((p): p is Profile => p !== null)
+    if (!profiles.length) {
+      localStorage.removeItem(LEGACY_KEY)
+      return
+    }
+    const merged = mergeProfileLists(useLearner.getState().profiles, profiles)
+    useLearner.setState({
+      profiles: merged,
+      activeId: merged.some((p) => p.id === parsed.state?.activeId)
+        ? (parsed.state?.activeId ?? merged[0].id)
+        : merged[0].id,
+    })
+  } catch {
+    /* unreadable — leave it alone rather than destroy it */
+  }
+}
+
+function dropLegacyLocalData(): void {
+  try {
+    localStorage.removeItem(LEGACY_KEY)
+  } catch {
+    /* private mode */
+  }
 }
 
 /** Start fetching the SDK now, so a later click can open a popup immediately. */
@@ -288,11 +358,16 @@ export async function finishRedirect(): Promise<boolean> {
  * never uses an account never pays for the SDK.
  */
 export async function initSync(): Promise<void> {
-  if (!wasSignedIn()) return
+  if (!wasSignedIn()) {
+    useSync.setState({ restoring: false })
+    return
+  }
   const fb = await loadFirebase()
   fb.auth.onAuthStateChanged(fb.authInstance, (user) => {
     if (!user) {
-      useSync.setState({ status: 'off', email: null })
+      // Signed out elsewhere, or the session lapsed. Stop waiting.
+      rememberSignedIn(false)
+      useSync.setState({ status: 'off', email: null, restoring: false })
       return
     }
     useSync.setState({ status: 'syncing', email: user.email })
