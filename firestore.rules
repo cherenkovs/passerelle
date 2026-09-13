@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Passerelle stores one document per signed-in account, holding that account's
+// learning profiles and nothing else.
+//
+// These rules are the only thing standing between accounts — the Firebase
+// config in the client is a set of identifiers, not a secret, so anyone can
+// point a request at this project. What they cannot do is read a document that
+// is not their own.
+//
+// Paste into Firebase console -> Firestore Database -> Rules -> Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A learner's own document, named by their account id. Signed in, and the
+    // id must match: no listing, no reading anyone else's.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Everything else is closed. Without this, a future collection added in the
+    // console would inherit no rule and be denied anyway — stating it means the
+    // intent survives someone loosening a rule above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

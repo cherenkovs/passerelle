@@ -37,6 +37,7 @@ import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
 import { AutoBackupCard } from '@/components/common/auto-backup'
+import { SyncCard } from '@/components/common/sync-card'
 import { daysSinceBackup, downloadBackup } from '@/lib/backup'
 import { storageStatus, type StorageStatus } from '@/lib/storage'
 import { cn } from '@/lib/utils'
@@ -405,6 +406,8 @@ export function SettingsPage() {
                 return d === 0 ? 'сьогодні' : `${d} дн. тому`
               })()}
             </p>
+
+            <SyncCard />
 
             <AutoBackupCard />
 

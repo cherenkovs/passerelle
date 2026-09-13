@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { requestPersistence } from '@/lib/storage'
+import { initSync } from '@/lib/sync'
 import { useAutoBackup } from '@/lib/use-autobackup'
 import { CoursePage } from '@/pages/Course'
 import { Dashboard } from '@/pages/Dashboard'
@@ -52,6 +53,8 @@ export default function App() {
     // runs short. It does nothing against a deliberate clear-out — see
     // lib/storage.ts — but it removes the one loss the learner never chose.
     void requestPersistence()
+    // Only touches the network for a browser that has signed in before.
+    void initSync()
   }, [])
 
   return (
