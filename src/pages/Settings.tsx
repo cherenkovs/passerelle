@@ -376,7 +376,10 @@ export function SettingsPage() {
             <input
               ref={fileRef}
               type="file"
-              accept="application/json"
+              // The extension matters as much as the MIME type: iOS matches the
+              // Files picker on UTType, and a bare application/json greys out
+              // the very .json file this app just wrote.
+              accept=".json,application/json"
               hidden
               onChange={(e) => {
                 const f = e.target.files?.[0]
