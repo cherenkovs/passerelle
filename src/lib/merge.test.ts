@@ -197,6 +197,68 @@ describe('merging whole profile lists', () => {
   })
 })
 
+describe('signing in never invents a learner', () => {
+  it('reuses the account profile instead of adding another', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    // The reported bug: every sign-in with the same Gmail grew one more name.
+    const { profiles, go } = routeAfterSignIn(
+      [profile({ id: 'made_on_this_mac', xp: 40 })],
+      [profile({ id: 'account_one', xp: 500 })],
+    )
+    expect(profiles).toHaveLength(1)
+    expect(profiles[0].id).toBe('account_one')
+    expect(go).toBe('app')
+  })
+
+  it('keeps work done in this browser before signing in', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    const { profiles } = routeAfterSignIn(
+      [profile({ id: 'local', savedWords: ['w_pain'], days: { '2026-09-12': day(60) } })],
+      [profile({ id: 'account', savedWords: ['w_eau'], days: { '2026-09-13': day(100) } })],
+    )
+    // Folded into the account's profile, not appended as a second one.
+    expect(profiles).toHaveLength(1)
+    expect(profiles[0].savedWords.sort()).toEqual(['w_eau', 'w_pain'])
+    expect(profiles[0].xp).toBe(160)
+  })
+
+  it('stays at one profile however many times you sign in', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    let account = [profile({ id: 'account_one' })]
+    for (let i = 0; i < 5; i++) {
+      account = routeAfterSignIn([profile({ id: `device_${i}` })], account).profiles
+    }
+    expect(account).toHaveLength(1)
+  })
+
+  it('still merges a profile the account and this browser share', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    const { profiles } = routeAfterSignIn(
+      [profile({ id: 'p1', savedWords: ['local'] })],
+      [profile({ id: 'p1', savedWords: ['remote'] })],
+    )
+    expect(profiles).toHaveLength(1)
+    expect(profiles[0].savedWords.sort()).toEqual(['local', 'remote'])
+  })
+
+  it('keeps every name the account holds, added deliberately', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    const { profiles } = routeAfterSignIn(
+      [],
+      [profile({ id: 'p1', name: 'Serhii' }), profile({ id: 'p2', name: 'Maryna' })],
+    )
+    expect(profiles.map((p) => p.name).sort()).toEqual(['Maryna', 'Serhii'])
+  })
+
+  it('sends a genuinely new learner to setup, and nobody else', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    expect(routeAfterSignIn([], []).go).toBe('setup')
+    // Already has a profile here — asking for a name again is what created the
+    // duplicate, because that step ends in createProfile.
+    expect(routeAfterSignIn([profile({ id: 'local' })], []).go).toBe('app')
+  })
+})
+
 function rec(completed: boolean, bestScore: number) {
   return { completed, bestScore, attempts: 1, lastAt: '2026-09-13T00:00:00.000Z' }
 }
@@ -218,27 +280,3 @@ function mistake(over: { resolved: boolean; at: string }) {
     ...over,
   }
 }
-
-describe('where signing in should land you', () => {
-  it('sends a returning account straight into the course', async () => {
-    const { routeAfterSignIn } = await import('./sync')
-    expect(routeAfterSignIn([], [profile({ id: 'p1' })]).go).toBe('app')
-  })
-
-  it('still finishes setup for a new account, stale local profile or not', async () => {
-    const { routeAfterSignIn } = await import('./sync')
-    // The bug this pins: a leftover profile in this browser made a brand-new
-    // account look like a returning one, so name and level were never asked.
-    expect(routeAfterSignIn([profile({ id: 'leftover' })], []).go).toBe('setup')
-    expect(routeAfterSignIn([], []).go).toBe('setup')
-  })
-
-  it('keeps local work when joining an account that already has some', async () => {
-    const { routeAfterSignIn } = await import('./sync')
-    const { profiles } = routeAfterSignIn(
-      [profile({ id: 'p1', savedWords: ['local'] })],
-      [profile({ id: 'p1', savedWords: ['remote'] })],
-    )
-    expect(profiles[0].savedWords.sort()).toEqual(['local', 'remote'])
-  })
-})

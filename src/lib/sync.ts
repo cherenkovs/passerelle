@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { loadFirebase, rememberSignedIn, wasSignedIn } from './firebase'
-import { mergeProfileLists } from './merge'
+import { mergeProfileLists, mergeProfiles } from './merge'
 import { LEARNER_VERSION, normalizeProfile, useLearner, type Profile } from '@/store/learner'
 
 /**
@@ -152,24 +152,47 @@ async function startSyncing() {
 }
 
 /**
- * Where a learner belongs once they have signed in.
+ * Where a learner belongs once they have signed in, and which profiles they own.
  *
- * The distinction that matters is whether the *account* has studied before,
- * not whether this browser has. A brand-new account still needs a name and a
- * level even when a stale profile happens to be sitting in local storage —
- * treating that leftover as "returning" silently skipped the rest of setup.
+ * Signing in must never invent a learner. Additional names are something the
+ * learner adds deliberately from the profile menu, so the account is the
+ * authority the moment it holds anything: its profiles are taken as the list,
+ * and one already in this browser is folded into the matching entry.
  *
- * Local work is merged either way: someone who tried the app before signing in
- * keeps what they did.
+ * A profile that exists only in this browser is pre-sign-in work by the same
+ * person, not a second learner. Appending it is what grew a new "user" on every
+ * sign-in — each device minting its own id, then the union treating the ids as
+ * different people. It is merged into the account's first profile instead, so
+ * the work survives without a duplicate appearing.
+ *
+ * Setup runs only when there is no profile anywhere. Reaching it with one
+ * already in hand was the other half of the same bug: the name step ends in
+ * createProfile, which duly made another.
  */
 export function routeAfterSignIn(
   local: Profile[],
   remote: Profile[],
 ): { profiles: Profile[]; go: 'app' | 'setup' } {
-  return {
-    profiles: mergeProfileLists(local, remote),
-    go: remote.length ? 'app' : 'setup',
+  if (!remote.length) return { profiles: local, go: local.length ? 'app' : 'setup' }
+
+  const byId = new Map(remote.map((r) => [r.id, r]))
+  const localOnly: Profile[] = []
+  for (const mine of local) {
+    const match = byId.get(mine.id)
+    if (match) byId.set(mine.id, mergeProfiles(match, mine))
+    else localOnly.push(mine)
   }
+
+  const profiles = [...byId.values()]
+  if (localOnly.length) {
+    // Same person, so keep the account's identity and take only the progress.
+    profiles[0] = localOnly.reduce(
+      (acc, orphan) => mergeProfiles(acc, { ...orphan, id: acc.id, name: acc.name }),
+      profiles[0],
+    )
+  }
+
+  return { profiles, go: 'app' }
 }
 
 /**
