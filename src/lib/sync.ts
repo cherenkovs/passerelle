@@ -131,7 +131,28 @@ async function startSyncing() {
   await push()
 }
 
-export async function signIn(): Promise<void> {
+/**
+ * Read the account's profiles once, right after signing in.
+ *
+ * This is what makes a second device work the way anyone would expect: sign in
+ * on a phone and the course is simply there, rather than asking again for a
+ * name and a level that were settled on the laptop weeks ago.
+ */
+export async function fetchRemoteProfiles(): Promise<Profile[]> {
+  const target = await userDoc()
+  if (!target) return []
+  try {
+    const snap = await target.fb.firestore.getDoc(target.ref)
+    const raw = snap.data()?.profiles
+    if (!Array.isArray(raw)) return []
+    return raw.map(normalizeProfile).filter((p): p is Profile => p !== null)
+  } catch {
+    return []
+  }
+}
+
+/** Resolves true only when there is a signed-in user at the end of it. */
+export async function signIn(): Promise<boolean> {
   useSync.setState({ status: 'connecting', error: null })
   try {
     const fb = await loadFirebase()
@@ -141,14 +162,16 @@ export async function signIn(): Promise<void> {
     // browser on iOS — exactly the phone this exists to support.
     await fb.auth.signInWithPopup(fb.authInstance, provider)
     rememberSignedIn(true)
+    return true
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не вдалося увійти'
     // Closing the popup is a choice, not a failure to report.
     if (message.includes('popup-closed-by-user') || message.includes('cancelled-popup-request')) {
       useSync.setState({ status: 'off', error: null })
-      return
+      return false
     }
     useSync.setState({ status: 'error', error: message })
+    return false
   }
 }
 

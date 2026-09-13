@@ -1,13 +1,25 @@
 import { motion } from 'framer-motion'
-import { Compass, ArrowLeft, ArrowRight, Check, Lock, Sparkles } from 'lucide-react'
+import {
+  AlertTriangle,
+  Compass,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Loader2,
+  Lock,
+  Sparkles,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LevelChip, Logo } from '@/components/common/misc'
+import { GoogleMark } from '@/components/common/sync-card'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import type { Gender } from '@/lib/agreement'
 import { useSpeak } from '@/components/common/speak'
+import { mergeProfileLists } from '@/lib/merge'
+import { attachAfterSignIn, fetchRemoteProfiles, signIn, useSync } from '@/lib/sync'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
@@ -39,13 +51,54 @@ const HIGHLIGHTS = [
 export function Onboarding() {
   const navigate = useNavigate()
   const { speak } = useSpeak()
+  const [signingIn, setSigningIn] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
+
+  /**
+   * Sign in, then go wherever the account already is.
+   *
+   * An account that has studied before goes straight into the course — being
+   * asked again for a name and a level that were settled on another device
+   * weeks ago is exactly the friction an account is supposed to remove. Local
+   * work done before signing in is merged rather than replaced, so trying the
+   * app first and signing in afterwards never costs a lesson.
+   */
+  const enterWithGoogle = async () => {
+    setSigningIn(true)
+    setSignInError(null)
+    try {
+      // A dismissed popup is not a failure and not a way past this step.
+      if (!(await signIn())) {
+        setSignInError(useSync.getState().error)
+        return
+      }
+
+      const remote = await fetchRemoteProfiles()
+      const local = useLearner.getState().profiles
+      const merged = mergeProfileLists(local, remote)
+
+      if (merged.length) {
+        useLearner.setState({ profiles: merged, activeId: merged[0].id })
+        await attachAfterSignIn()
+        navigate('/')
+        return
+      }
+
+      await attachAfterSignIn()
+      setStep(2)
+    } catch (e) {
+      setSignInError(e instanceof Error ? e.message : 'Спробуй ще раз')
+    } finally {
+      setSigningIn(false)
+    }
+  }
   const [params] = useSearchParams()
   const isAdding = params.get('add') === '1'
 
   const createProfile = useLearner((s) => s.createProfile)
   const existing = useLearner((s) => s.profiles)
 
-  const [step, setStep] = useState(isAdding ? 1 : 0)
+  const [step, setStep] = useState(isAdding ? 2 : 0)
   const [name, setName] = useState('')
   const [gender, setGender] = useState<Gender>('m')
   const [courseId, setCourseId] = useState('a0-a1')
@@ -62,7 +115,7 @@ export function Onboarding() {
         <div className="mb-10 flex items-center gap-3">
           <Logo size={32} />
           <div className="flex flex-1 items-center gap-1.5">
-            {[0, 1, 2].map((i) => (
+            {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
                 className={cn(
@@ -72,7 +125,7 @@ export function Onboarding() {
               />
             ))}
           </div>
-          {step > (isAdding ? 1 : 0) && (
+          {step > (isAdding ? 2 : 0) && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -141,6 +194,58 @@ export function Onboarding() {
         )}
 
         {step === 1 && (
+          <Slide key="signin">
+            <div className="flex flex-1 flex-col justify-center py-8">
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+                Спочатку — вхід
+              </h2>
+              <p className="text-fg-muted mt-4 max-w-lg text-[16px] leading-relaxed text-pretty">
+                Акаунт тримає твій прогрес разом на всіх пристроях: почни урок на комп’ютері —
+                продовжиш у телефоні з того самого місця. Passerelle не бачить нічого, крім твого
+                курсу.
+              </p>
+
+              <div className="mt-8">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto sm:px-10"
+                  disabled={signingIn}
+                  onClick={() => void enterWithGoogle()}
+                >
+                  {signingIn ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <GoogleMark className="size-5" />
+                  )}
+                  {signingIn ? 'Вхід…' : 'Увійти через Google'}
+                </Button>
+
+                {signInError && (
+                  <div className="border-danger-border bg-danger-soft mt-5 rounded-2xl border p-4">
+                    <p className="text-danger flex items-start gap-2 text-[13.5px] leading-snug text-pretty">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                      <span>Не вдалося увійти: {signInError}</span>
+                    </p>
+                    {/*
+                      Only offered after a failure. Sign-in is the way in, but a
+                      blocked popup or a dead connection must not leave someone
+                      locked out of a course that runs perfectly offline.
+                    */}
+                    <button
+                      type="button"
+                      onClick={() => setStep(2)}
+                      className="text-fg-muted mt-3 text-[13px] underline underline-offset-4"
+                    >
+                      Продовжити без акаунта — прогрес буде лише на цьому пристрої
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Slide>
+        )}
+
+        {step === 2 && (
           <Slide key="name">
             <div className="flex flex-1 flex-col justify-center py-8">
               <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
@@ -158,7 +263,7 @@ export function Onboarding() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && name.trim()) setStep(2)
+                    if (e.key === 'Enter' && name.trim()) setStep(3)
                   }}
                   placeholder="Наприклад, Марина"
                   autoFocus
@@ -201,7 +306,7 @@ export function Onboarding() {
                 size="lg"
                 className="mt-8 w-full sm:w-auto sm:self-start sm:px-10"
                 disabled={!name.trim()}
-                onClick={() => setStep(2)}
+                onClick={() => setStep(3)}
               >
                 Далі <ArrowRight />
               </Button>
@@ -209,7 +314,7 @@ export function Onboarding() {
           </Slide>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <Slide key="level">
             <div className="flex flex-1 flex-col py-8">
               <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
