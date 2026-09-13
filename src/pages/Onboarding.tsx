@@ -18,8 +18,13 @@ import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import type { Gender } from '@/lib/agreement'
 import { useSpeak } from '@/components/common/speak'
-import { mergeProfileLists } from '@/lib/merge'
-import { attachAfterSignIn, fetchRemoteProfiles, signIn, useSync } from '@/lib/sync'
+import {
+  attachAfterSignIn,
+  fetchRemoteProfiles,
+  routeAfterSignIn,
+  signIn,
+  useSync,
+} from '@/lib/sync'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
@@ -74,18 +79,15 @@ export function Onboarding() {
       }
 
       const remote = await fetchRemoteProfiles()
-      const local = useLearner.getState().profiles
-      const merged = mergeProfileLists(local, remote)
+      const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
 
-      if (merged.length) {
-        useLearner.setState({ profiles: merged, activeId: merged[0].id })
-        await attachAfterSignIn()
-        navigate('/')
-        return
+      if (profiles.length) {
+        useLearner.setState({ profiles, activeId: profiles[0].id })
       }
-
       await attachAfterSignIn()
-      setStep(2)
+
+      if (go === 'app') navigate('/')
+      else setStep(2)
     } catch (e) {
       setSignInError(e instanceof Error ? e.message : 'Спробуй ще раз')
     } finally {

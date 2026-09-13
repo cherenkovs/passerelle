@@ -218,3 +218,27 @@ function mistake(over: { resolved: boolean; at: string }) {
     ...over,
   }
 }
+
+describe('where signing in should land you', () => {
+  it('sends a returning account straight into the course', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    expect(routeAfterSignIn([], [profile({ id: 'p1' })]).go).toBe('app')
+  })
+
+  it('still finishes setup for a new account, stale local profile or not', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    // The bug this pins: a leftover profile in this browser made a brand-new
+    // account look like a returning one, so name and level were never asked.
+    expect(routeAfterSignIn([profile({ id: 'leftover' })], []).go).toBe('setup')
+    expect(routeAfterSignIn([], []).go).toBe('setup')
+  })
+
+  it('keeps local work when joining an account that already has some', async () => {
+    const { routeAfterSignIn } = await import('./sync')
+    const { profiles } = routeAfterSignIn(
+      [profile({ id: 'p1', savedWords: ['local'] })],
+      [profile({ id: 'p1', savedWords: ['remote'] })],
+    )
+    expect(profiles[0].savedWords.sort()).toEqual(['local', 'remote'])
+  })
+})

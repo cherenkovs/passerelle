@@ -25,6 +25,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Wordmark } from '@/components/common/misc'
 import { Button } from '@/components/ui/button'
 import { cn, pluralUk, todayKey } from '@/lib/utils'
+import { SignInPill } from '@/components/common/signin-pill'
 import { useLearner, useActiveProfile } from '@/store/learner'
 import { useSettings } from '@/store/settings'
 
@@ -271,6 +272,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
             {profile?.streakCurrent ?? 0}
           </span>
         </div>
+
+        <SignInPill />
 
         <ProfileMenu />
       </div>

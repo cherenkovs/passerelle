@@ -132,6 +132,27 @@ async function startSyncing() {
 }
 
 /**
+ * Where a learner belongs once they have signed in.
+ *
+ * The distinction that matters is whether the *account* has studied before,
+ * not whether this browser has. A brand-new account still needs a name and a
+ * level even when a stale profile happens to be sitting in local storage —
+ * treating that leftover as "returning" silently skipped the rest of setup.
+ *
+ * Local work is merged either way: someone who tried the app before signing in
+ * keeps what they did.
+ */
+export function routeAfterSignIn(
+  local: Profile[],
+  remote: Profile[],
+): { profiles: Profile[]; go: 'app' | 'setup' } {
+  return {
+    profiles: mergeProfileLists(local, remote),
+    go: remote.length ? 'app' : 'setup',
+  }
+}
+
+/**
  * Read the account's profiles once, right after signing in.
  *
  * This is what makes a second device work the way anyone would expect: sign in
