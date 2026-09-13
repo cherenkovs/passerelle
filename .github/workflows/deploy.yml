@@ -1,0 +1,67 @@
+# Build Passerelle and publish it to GitHub Pages.
+#
+# The app is a static bundle with no backend, no API keys and no environment
+# variables, so there is nothing here to configure — a push to main is the
+# whole deployment.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # So a deploy can be re-run from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it: a half-published
+# site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Vite 8 needs a recent Node, and the runner's default has been
+          # older than that. Pinned in .node-version so CI and this machine
+          # cannot drift apart.
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      # The tests gate the deploy. They are fast (~1s) and they cover the
+      # things that fail silently here — the voice layer reading notation
+      # aloud, progress not persisting — which no smoke test would catch.
+      - run: npm test
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repository the first time this runs, so
+          # there is no separate switch to find in Settings.
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
