@@ -9,7 +9,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LevelChip, Logo } from '@/components/common/misc'
 import { GoogleMark } from '@/components/common/sync-card'
@@ -21,9 +21,12 @@ import { useSpeak } from '@/components/common/speak'
 import {
   attachAfterSignIn,
   fetchRemoteProfiles,
+  finishRedirect,
+  redirectPending,
   routeAfterSignIn,
   signIn,
   useSync,
+  warmFirebase,
 } from '@/lib/sync'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
@@ -56,6 +59,14 @@ const HIGHLIGHTS = [
 export function Onboarding() {
   const navigate = useNavigate()
   const { speak } = useSpeak()
+  const [params] = useSearchParams()
+  const isAdding = params.get('add') === '1'
+
+  const [step, setStep] = useState(isAdding ? 2 : 0)
+  const [name, setName] = useState('')
+  const [gender, setGender] = useState<Gender>('m')
+  const [courseId, setCourseId] = useState('a0-a1')
+
   const [signingIn, setSigningIn] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
 
@@ -68,6 +79,32 @@ export function Onboarding() {
    * work done before signing in is merged rather than replaced, so trying the
    * app first and signing in afterwards never costs a lesson.
    */
+  /** Shared by the button and by the redirect coming back. */
+  const landAfterSignIn = async () => {
+    const remote = await fetchRemoteProfiles()
+    const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
+    if (profiles.length) useLearner.setState({ profiles, activeId: profiles[0].id })
+    await attachAfterSignIn()
+    if (go === 'app') navigate('/')
+    else setStep(2)
+  }
+
+  useEffect(() => {
+    // Fetch the SDK while the learner reads this screen, so the popup can open
+    // inside their click instead of after a download.
+    warmFirebase()
+
+    // And if we are the far side of a redirect, carry on where it left off.
+    if (!redirectPending()) return
+    setSigningIn(true)
+    void finishRedirect()
+      .then(async (ok) => {
+        if (!ok) return
+        await landAfterSignIn()
+      })
+      .finally(() => setSigningIn(false))
+  }, [])
+
   const enterWithGoogle = async () => {
     setSigningIn(true)
     setSignInError(null)
@@ -78,32 +115,15 @@ export function Onboarding() {
         return
       }
 
-      const remote = await fetchRemoteProfiles()
-      const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
-
-      if (profiles.length) {
-        useLearner.setState({ profiles, activeId: profiles[0].id })
-      }
-      await attachAfterSignIn()
-
-      if (go === 'app') navigate('/')
-      else setStep(2)
+      await landAfterSignIn()
     } catch (e) {
       setSignInError(e instanceof Error ? e.message : 'Спробуй ще раз')
     } finally {
       setSigningIn(false)
     }
   }
-  const [params] = useSearchParams()
-  const isAdding = params.get('add') === '1'
-
   const createProfile = useLearner((s) => s.createProfile)
   const existing = useLearner((s) => s.profiles)
-
-  const [step, setStep] = useState(isAdding ? 2 : 0)
-  const [name, setName] = useState('')
-  const [gender, setGender] = useState<Gender>('m')
-  const [courseId, setCourseId] = useState('a0-a1')
 
   const finish = (to = '/') => {
     createProfile(name, courseId, gender)

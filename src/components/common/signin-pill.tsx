@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMark } from './sync-card'
 import {
@@ -7,6 +8,7 @@ import {
   routeAfterSignIn,
   signIn,
   useSync,
+  warmFirebase,
 } from '@/lib/sync'
 import { useLearner } from '@/store/learner'
 
@@ -22,6 +24,10 @@ import { useLearner } from '@/store/learner'
 export function SignInPill() {
   const status = useSync((s) => s.status)
   const navigate = useNavigate()
+
+  // Warm the SDK so this button's click can open a popup straight away; a
+  // download in the middle of the gesture is what gets popups blocked.
+  useEffect(() => warmFirebase(), [])
 
   if (status !== 'off' && status !== 'connecting') return null
   const busy = status === 'connecting'

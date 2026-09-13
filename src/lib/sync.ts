@@ -172,16 +172,44 @@ export async function fetchRemoteProfiles(): Promise<Profile[]> {
   }
 }
 
-/** Resolves true only when there is a signed-in user at the end of it. */
+const REDIRECT_FLAG = 'passerelle:sync-redirect'
+
+/**
+ * Resolves true only when there is a signed-in user at the end of it.
+ *
+ * A popup has to be opened inside the click that asked for it. Awaiting the
+ * Firebase SDK first — it is lazy-loaded, so the first sign-in waits on a
+ * 200 KB download — spent the gesture before `signInWithPopup` ever reached
+ * `window.open`, and the browser blocked it as an unsolicited popup. Hence
+ * `warmFirebase()` on the screens that show a sign-in button: by click time
+ * the module is already resolved and the popup opens inside the gesture.
+ *
+ * A redirect is the fallback rather than the default, because Firebase's
+ * redirect flow is unreliable on browsers that partition third-party storage —
+ * Safari and everything on iOS. Popup first, redirect only when the popup was
+ * refused, so each covers the other's weakness.
+ */
 export async function signIn(): Promise<boolean> {
   useSync.setState({ status: 'connecting', error: null })
   try {
     const fb = await loadFirebase()
     const provider = new fb.auth.GoogleAuthProvider()
-    // Popup rather than redirect: Firebase's redirect flow breaks on browsers
-    // that partition third-party storage, which includes Safari and every
-    // browser on iOS — exactly the phone this exists to support.
-    await fb.auth.signInWithPopup(fb.authInstance, provider)
+    try {
+      await fb.auth.signInWithPopup(fb.authInstance, provider)
+    } catch (inner) {
+      const code = inner instanceof Error ? inner.message : String(inner)
+      if (code.includes('popup-blocked') || code.includes('operation-not-supported')) {
+        try {
+          localStorage.setItem(REDIRECT_FLAG, '1')
+        } catch {
+          /* private mode */
+        }
+        // Navigates away; the result is picked up by finishRedirect() on return.
+        await fb.auth.signInWithRedirect(fb.authInstance, provider)
+        return false
+      }
+      throw inner
+    }
     rememberSignedIn(true)
     return true
   } catch (e) {
@@ -206,6 +234,51 @@ export async function signOut(): Promise<void> {
   await fb.auth.signOut(fb.authInstance)
   rememberSignedIn(false)
   useSync.setState({ status: 'off', email: null, lastSyncedAt: null, error: null })
+}
+
+/** Start fetching the SDK now, so a later click can open a popup immediately. */
+export function warmFirebase(): void {
+  void loadFirebase()
+}
+
+export function redirectPending(): boolean {
+  try {
+    return localStorage.getItem(REDIRECT_FLAG) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Pick up a sign-in that went the redirect route.
+ *
+ * Returns true when this load is the far side of one and it worked, so the
+ * caller can route the learner the same way a popup sign-in would have.
+ */
+export async function finishRedirect(): Promise<boolean> {
+  if (!redirectPending()) return false
+  try {
+    localStorage.removeItem(REDIRECT_FLAG)
+  } catch {
+    /* private mode */
+  }
+  useSync.setState({ status: 'connecting' })
+  try {
+    const fb = await loadFirebase()
+    const result = await fb.auth.getRedirectResult(fb.authInstance)
+    if (!result?.user) {
+      useSync.setState({ status: 'off' })
+      return false
+    }
+    rememberSignedIn(true)
+    return true
+  } catch (e) {
+    useSync.setState({
+      status: 'error',
+      error: e instanceof Error ? e.message : 'Не вдалося увійти',
+    })
+    return false
+  }
 }
 
 /**
