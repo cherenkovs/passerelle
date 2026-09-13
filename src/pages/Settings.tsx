@@ -36,6 +36,8 @@ import {
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
+import { daysSinceBackup, downloadBackup } from '@/lib/backup'
+import { storageStatus, type StorageStatus } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { LEARNER_VERSION, useActiveProfile, useLearner, type Profile } from '@/store/learner'
 import { useSettings, type Theme } from '@/store/settings'
@@ -51,6 +53,13 @@ export function SettingsPage() {
   const deleteProfile = useLearner((s) => s.deleteProfile)
   const resetProgress = useLearner((s) => s.resetProgress)
   const importProfiles = useLearner((s) => s.importProfiles)
+  const markBackedUp = useLearner((s) => s.markBackedUp)
+  const lastBackupAt = useLearner((s) => s.lastBackupAt)
+  const [storage, setStorage] = useState<StorageStatus | null>(null)
+
+  useEffect(() => {
+    void storageStatus().then(setStorage)
+  }, [lastBackupAt])
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [confirm, setConfirm] = useState<null | 'reset' | 'delete'>(null)
@@ -64,18 +73,10 @@ export function SettingsPage() {
   if (!profile) return null
 
   const exportData = () => {
-    const blob = new Blob(
-      [JSON.stringify({ profiles, version: LEARNER_VERSION, app: 'passerelle' }, null, 2)],
-      {
-        type: 'application/json',
-      },
-    )
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `passerelle-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBackup(profiles, LEARNER_VERSION)
+    // Same bookkeeping as the dashboard reminder, or exporting here would
+    // leave it still asking for a file that has just been written.
+    markBackedUp()
   }
 
   const importData = (file: File) => {
@@ -385,6 +386,31 @@ export function SettingsPage() {
             <Button variant="ghost" className="text-danger" onClick={() => setConfirm('reset')}>
               <Trash2 /> Скинути прогрес
             </Button>
+          </div>
+
+          <div className="border-line mt-5 border-t pt-4 text-[12.5px] leading-relaxed">
+            <p className="text-fg-muted">
+              <span className="text-fg font-medium">Остання копія: </span>
+              {(() => {
+                const d = daysSinceBackup({
+                  lastBackupAt,
+                  lastBackupXp: 0,
+                  snoozedUntil: null,
+                })
+                if (d === null) return 'ще не робив'
+                return d === 0 ? 'сьогодні' : `${d} дн. тому`
+              })()}
+            </p>
+
+            {storage?.supported && (
+              <p className="text-fg-subtle mt-1.5 text-pretty">
+                {storage.persisted
+                  ? 'Браузер позначив дані як постійні — він не видалить їх сам, коли забракне місця. '
+                  : 'Браузер може видалити дані, якщо йому забракне місця. '}
+                Але жодне сховище не переживе очищення браузера вручну чи програмою-чистильником —
+                від цього рятує лише експортований файл.
+              </p>
+            )}
           </div>
         </Card>
       </section>
