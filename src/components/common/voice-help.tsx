@@ -37,7 +37,9 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
   const pretty = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
 
   return (
-    <div className="mt-2.5 text-[12.5px] leading-relaxed">
+    // py-4 to match SettingRow: this is a cell of the same divided card, and
+    // with only a top margin the link sat flush against the divider below it.
+    <div className="py-4 text-[12.5px] leading-relaxed">
       {ok ? (
         <p className="text-success flex items-start gap-1.5">
           <Check className="mt-0.5 size-3.5 shrink-0" />
