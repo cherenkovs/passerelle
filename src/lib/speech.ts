@@ -48,61 +48,94 @@ export function frenchVoices(): SpeechSynthesisVoice[] {
 }
 
 /**
- * Voices to reach for first, checked only among voices of the right variety.
+ * Known-good French voices, best first.
  *
- * Ordered female-first. The list used to open with Thomas, so the very first
- * thing a learner heard — the example on the onboarding gender question — was
- * a man's voice regardless of anything else.
+ * Ordered by how well a learner is served, not by how the system lists them.
+ * Female first, because the example on the onboarding gender question speaks
+ * itself and used to open the whole course in a man's voice. Within that, the
+ * classic Apple voices before the newer stylised ones, then the common Windows
+ * and Google names, so a decent default is found off a Mac too.
  *
- * Alice leads because she was asked for by name. On most systems Alice is an
- * Italian voice and will simply never match here, which is the intent: the
- * variety check runs first, so she is only ever chosen on a device that ships
- * a French one. A course about French vowels read by an Italian synthesiser
- * would teach the wrong sounds.
+ * Alice leads by request. On most systems she is an Italian voice and will
+ * never match here, which is the point: the variety of the voice is filtered
+ * before this list is consulted, so she is only chosen where a French Alice
+ * exists. French read by an Italian synthesiser teaches the wrong vowels.
  *
- * Audrey, Aurélie, Amélie and Marie are the classic French female voices;
- * Flo, Sandy and Shelley are the newer system ones, kept last because they are
- * more stylised.
+ * Names are matched as substrings, so "Flo (French (France))" matches "flo".
  */
-const PREFERRED_NAMES = [
+const VOICE_RANK = [
   'alice',
-  'audrey',
+  // Apple, classic — the clearest of the lot for a learner
   'aurélie',
   'aurelie',
+  'audrey',
+  'marie',
   'amélie',
   'amelie',
-  'marie',
+  'chantal',
+  // Apple, newer system voices — fine, but more stylised
   'flo',
   'sandy',
   'shelley',
+  // Windows
+  'denise',
+  'julie',
+  'hortense',
+  // Google / Chrome OS / Android
+  'google français',
+  'google french',
+  // Male voices last: still good, just not the default
+  'thomas',
+  'jacques',
+  'nicolas',
+  'paul',
+  'henri',
+  'eddy',
+  'rocko',
+  'reed',
 ]
 
 function isFrance(v: SpeechSynthesisVoice) {
   return v.lang.toLowerCase().replace('_', '-') === 'fr-fr'
 }
 
+function rankOf(v: SpeechSynthesisVoice): number {
+  const name = v.name.toLowerCase()
+  const i = VOICE_RANK.findIndex((p) => name.includes(p))
+  return i === -1 ? VOICE_RANK.length : i
+}
+
+/** Voices that threw while speaking; not offered again this session. */
+const brokenVoices = new Set<string>()
+
 /**
- * Best-guess default: **metropolitan French first**, then a good name.
+ * Every French voice this device has, best first.
  *
- * The order matters. Checking names first picked "Amélie", who on macOS is
- * fr-CA — so a course built around Paris, Lyon and the DELF was teaching a
- * Québec accent. Variety beats timbre: a learner can live with a plainer
- * voice, not with the wrong vowels.
+ * Returned as an ordered list rather than a single pick so that a voice which
+ * fails mid-sentence can be set aside and the next one tried, instead of the
+ * learner simply hearing nothing.
+ *
+ * The order is: metropolitan French before any other variety, because the
+ * course teaches Paris and the DELF and an accent is not a matter of taste;
+ * then voices installed on the device before ones fetched over the network,
+ * which are slower and stop working on a train; then the ranked names above.
  */
+export function frenchVoicesRanked(): SpeechSynthesisVoice[] {
+  const usable = frenchVoices().filter((v) => !brokenVoices.has(v.voiceURI))
+  return usable.sort((a, b) => {
+    if (isFrance(a) !== isFrance(b)) return isFrance(a) ? -1 : 1
+    if (a.localService !== b.localService) return a.localService ? -1 : 1
+    return rankOf(a) - rankOf(b)
+  })
+}
+
 export function pickDefaultFrenchVoice(): SpeechSynthesisVoice | undefined {
-  const fr = frenchVoices()
-  if (!fr.length) return undefined
+  return frenchVoicesRanked()[0]
+}
 
-  const pick = (pool: SpeechSynthesisVoice[]) => {
-    if (!pool.length) return undefined
-    const local = pool.filter((v) => v.localService)
-    const best = local.length ? local : pool
-    return (
-      best.find((v) => PREFERRED_NAMES.some((p) => v.name.toLowerCase().includes(p))) ?? best[0]
-    )
-  }
-
-  return pick(fr.filter(isFrance)) ?? pick(fr)
+/** Remember that a voice failed, so the next attempt moves on to another. */
+export function markVoiceBroken(voiceURI: string) {
+  brokenVoices.add(voiceURI)
 }
 
 /**
@@ -153,6 +186,8 @@ export type SpeakOptions = {
   onStart?: () => void
   /** Identity of the caller, so it can later cancel only its own speech. */
   owner?: unknown
+  /** Set when this is already the retry after a voice failed; stops a loop. */
+  retried?: boolean
 }
 
 let currentUtterance: SpeechSynthesisUtterance | null = null
@@ -352,7 +387,32 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
     opts.onEnd?.()
   }
   u.onend = finish
-  u.onerror = finish
+
+  /**
+   * A voice can be listed and still fail to speak — a network voice with no
+   * network, or one the system has not finished installing. Set it aside and
+   * try the next one down the ranking, once, rather than leaving the learner
+   * with silence and no way to know why.
+   */
+  u.onerror = (event) => {
+    const failed = u.voice
+    // "interrupted" and "canceled" are barge-in: a new utterance replaced this
+    // one on purpose, and the voice is fine.
+    const reason = (event as SpeechSynthesisErrorEvent)?.error
+    const bargeIn = reason === 'interrupted' || reason === 'canceled'
+
+    if (!bargeIn && failed && !opts.retried) {
+      markVoiceBroken(failed.voiceURI)
+      const next = pickDefaultFrenchVoice()
+      if (next && next.voiceURI !== failed.voiceURI) {
+        currentUtterance = null
+        currentOwner = null
+        void speak(text, { ...opts, voiceURI: next.voiceURI, voiceName: next.name, retried: true })
+        return
+      }
+    }
+    finish()
+  }
 
   currentUtterance = u
   currentOwner = opts.owner ?? null

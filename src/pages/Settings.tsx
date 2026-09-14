@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
-import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
+import { frenchVoicesRanked, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
 import { ProfilesCard } from '@/components/common/profiles-card'
 import { SyncCard } from '@/components/common/sync-card'
 import { downloadBackup } from '@/lib/backup'
@@ -61,12 +61,30 @@ export function SettingsPage() {
   const { speak } = useSpeak()
 
   useEffect(() => {
-    void loadVoices().then(() => setVoices(frenchVoices()))
+    // Same order the automatic choice uses, so the top of the list is the one
+    // the app would have picked.
+    void loadVoices().then(() => setVoices(frenchVoicesRanked()))
   }, [])
 
   if (!profile) return null
 
   const exportData = () => downloadBackup(profiles, LEARNER_VERSION)
+
+  /**
+   * Which French a voice actually speaks.
+   *
+   * Amélie is Québécois, and the list gives no hint of it — so a learner
+   * picking by name can land a different accent from the one the course
+   * teaches without ever being told.
+   */
+  const frenchVariety = (lang: string) => {
+    const tag = lang.toLowerCase().replace('_', '-')
+    if (tag === 'fr-fr') return 'Франція'
+    if (tag === 'fr-ca') return 'Канада'
+    if (tag === 'fr-be') return 'Бельгія'
+    if (tag === 'fr-ch') return 'Швейцарія'
+    return tag
+  }
 
   const importData = (file: File) => {
     const reader = new FileReader()
@@ -195,7 +213,7 @@ export function SettingsPage() {
                 label="Французький голос"
                 description={
                   voices.length
-                    ? `Доступно ${voices.length}. На macOS найкраще звучать Thomas і Amélie.`
+                    ? `Доступно ${voices.length}, найкращі — зверху. «Франція» — вимова, якої вчить курс.`
                     : 'Голоси ще завантажуються або відсутні в системі.'
                 }
               >
@@ -218,7 +236,7 @@ export function SettingsPage() {
                       <SelectItem value="auto">Автоматично</SelectItem>
                       {voices.map((v) => (
                         <SelectItem key={v.voiceURI} value={v.voiceURI}>
-                          {v.name}
+                          {v.name} · {frenchVariety(v.lang)}
                         </SelectItem>
                       ))}
                     </SelectContent>

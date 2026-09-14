@@ -151,20 +151,19 @@ describe('speakable', () => {
  * Which voice
  * ------------------------------------------------------------------ */
 
-describe('pickDefaultFrenchVoice', () => {
+describe('choosing a French voice', () => {
   it('prefers metropolitan French over a nicer-sounding Canadian one', async () => {
-    // The regression this exists for: "Amélie" is fr-CA on macOS, and matching
-    // on name first handed a Paris-based course a Québec accent.
+    // "Amélie" is fr-CA on macOS. Matching on name first handed a course built
+    // around Paris and the DELF a Québec accent.
     install([voice('Amélie', 'fr-CA'), voice('Jacques', 'fr-FR')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
     expect(pickDefaultFrenchVoice()?.lang).toBe('fr-FR')
-    expect(pickDefaultFrenchVoice()?.name).toBe('Jacques')
   })
 
-  it('picks a French female voice over a male one', async () => {
-    // The onboarding gender question speaks its own example, so the default
-    // voice is the first thing anyone hears. It used to be Thomas.
+  it('picks a female voice over a male one within the same variety', async () => {
+    // The onboarding gender question speaks its own example, so the default is
+    // the first French anyone hears. It used to be Thomas.
     install([voice('Thomas', 'fr-FR'), voice('Aurélie', 'fr-FR')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
@@ -178,9 +177,29 @@ describe('pickDefaultFrenchVoice', () => {
     expect(pickDefaultFrenchVoice()?.name).toBe('Shelley (French (France))')
   })
 
+  it('takes Amélie when the device has no metropolitan voice at all', async () => {
+    install([voice('Amélie', 'fr-CA'), voice('Nicolas', 'fr-CA')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Amélie')
+  })
+
+  it('finds a sensible default away from Apple', async () => {
+    install([voice('Microsoft Paul', 'fr-FR'), voice('Microsoft Denise', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Microsoft Denise')
+  })
+
+  it('prefers a local voice over a network one — network means latency', async () => {
+    install([voice('Aurélie', 'fr-FR', false), voice('Thomas', 'fr-FR', true)])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    // Installed beats better-ranked: a network voice is slow and dies offline.
+    expect(pickDefaultFrenchVoice()?.name).toBe('Thomas')
+  })
+
   it('never takes an Italian Alice for a French course', async () => {
-    // Alice leads the preference list by request, but variety is checked
-    // first: an Italian synthesiser reading French teaches the wrong vowels.
     install([voice('Alice', 'it-IT'), voice('Aurélie', 'fr-FR')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
@@ -194,31 +213,39 @@ describe('pickDefaultFrenchVoice', () => {
     expect(pickDefaultFrenchVoice()?.name).toBe('Alice')
   })
 
-  it('prefers a local voice over a network one — network means latency', async () => {
-    install([voice('Google français', 'fr-FR', false), voice('Jacques', 'fr-FR', true)])
-    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
-    await loadVoices()
-    expect(pickDefaultFrenchVoice()?.name).toBe('Jacques')
-  })
-
-  it('falls back to another French variety rather than nothing', async () => {
-    install([voice('Amélie', 'fr-CA')])
-    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
-    await loadVoices()
-    expect(pickDefaultFrenchVoice()?.name).toBe('Amélie')
-  })
-
-  it('returns nothing when the system has no French at all', async () => {
-    install([voice('Daniel', 'en-GB')])
+  it('returns nothing rather than a wrong language when no French is installed', async () => {
+    install([voice('Alice', 'it-IT'), voice('Daniel', 'en-GB')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
     expect(pickDefaultFrenchVoice()).toBeUndefined()
   })
 })
 
-/* ------------------------------------------------------------------ *
- * Latency
- * ------------------------------------------------------------------ */
+describe('when a voice fails', () => {
+  it('steps down to the next one and leaves the broken one out', async () => {
+    install([voice('Aurélie', 'fr-FR'), voice('Thomas', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice, markVoiceBroken, frenchVoicesRanked } =
+      await import('./speech')
+    await loadVoices()
+
+    const first = pickDefaultFrenchVoice()
+    expect(first?.name).toBe('Aurélie')
+
+    // A voice can be listed and still fail: a network voice with no network,
+    // or one the system has not finished installing.
+    markVoiceBroken(first!.voiceURI)
+    expect(pickDefaultFrenchVoice()?.name).toBe('Thomas')
+    expect(frenchVoicesRanked().map((v) => v.name)).not.toContain('Aurélie')
+  })
+
+  it('gives up rather than looping when every voice has failed', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice, markVoiceBroken } = await import('./speech')
+    await loadVoices()
+    markVoiceBroken(pickDefaultFrenchVoice()!.voiceURI)
+    expect(pickDefaultFrenchVoice()).toBeUndefined()
+  })
+})
 
 describe('speak', () => {
   it('does not wait on the voice list once it is warm', async () => {
