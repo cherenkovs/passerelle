@@ -62,6 +62,11 @@ class Account {
 /** Everything a browser holds — which, after sign-out, is nothing. */
 class Device {
   local: Profile[] = []
+  name: string
+
+  constructor(name: string) {
+    this.name = name
+  }
 
   signIn(account: Account) {
     const { profiles, go } = routeAfterSignIn(this.local, account.profiles)
@@ -96,8 +101,6 @@ class Device {
   receiveSnapshot(account: Account) {
     this.local = account.pullInto(this.local)
   }
-
-  constructor(public name: string) {}
 }
 
 describe('a laptop and a phone on one account', () => {
