@@ -139,7 +139,7 @@ async function push() {
     // Nothing pending means this is the push on connect, which has nothing to
     // announce: the learner did not just do anything.
     if (pendingReason) {
-      toastOnce('save', { ...SAVED_COPY[pendingReason], tone: 'ok' })
+      toastOnce('save', { title: SAVED_COPY[pendingReason], tone: 'ok' })
       pendingReason = null
     }
     // Now it is in the account, the browser copy can go.
@@ -163,10 +163,25 @@ function schedulePush(reason: PushReason) {
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
 }
 
-const SAVED_COPY: Record<PushReason, { title: string; description: string }> = {
-  progress: { title: 'Прогрес збережено', description: 'Урок, картки й статистика — в акаунті' },
-  settings: { title: 'Налаштування збережено', description: 'Діятимуть на всіх пристроях' },
-  both: { title: 'Збережено', description: 'Прогрес і налаштування — в акаунті' },
+/**
+ * Wording for a save.
+ *
+ * Title only, no description. A description earns its place by carrying
+ * something the learner does not already have — a filename, a count, the
+ * reason a thing failed — and "діятимуть на всіх пристроях" is none of those
+ * after the first time they read it. It is also the kind of line that makes a
+ * routine confirmation feel like an announcement.
+ *
+ * Not per-field either. "Голос збережено", "Аватар збережено" and the rest
+ * would mean a string for every setting, all of them telling the learner what
+ * they just did. Which of the two stores was written is the one distinction
+ * worth drawing, because a lesson saving itself and a setting being changed
+ * are genuinely different events.
+ */
+const SAVED_COPY: Record<PushReason, string> = {
+  progress: 'Прогрес збережено',
+  settings: 'Налаштування збережено',
+  both: 'Збережено',
 }
 
 /** Preferences are last-write-wins: there is nothing to merge about a theme. */
@@ -419,7 +434,7 @@ export async function deleteAccount(): Promise<void> {
     error: null,
     restoring: false,
   })
-  toast({ title: 'Акаунт видалено', description: 'Усі дані стерто з сервера', tone: 'ok' })
+  toast({ title: 'Акаунт видалено', description: 'Усі дані стерто', tone: 'info' })
 }
 
 export async function signOut(): Promise<void> {
@@ -431,7 +446,9 @@ export async function signOut(): Promise<void> {
   stopSettings?.()
   stopSnapshot = stopStore = stopSettings = null
   await fb.auth.signOut(fb.authInstance)
-  toast({ title: 'Ви вийшли з акаунта', description: 'Прогрес лишився в акаунті', tone: 'info' })
+  // Kept, unlike the other descriptions: with nothing stored in this browser,
+  // "where did my progress go" is a real question at exactly this moment.
+  toast({ title: 'Ви вийшли', description: 'Прогрес лишився в акаунті', tone: 'info' })
   useSync.setState({
     status: 'off',
     email: null,

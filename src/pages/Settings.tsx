@@ -89,8 +89,8 @@ export function SettingsPage() {
   const exportData = () => {
     downloadBackup(profiles, LEARNER_VERSION)
     toast({
-      title: 'Копію даних збережено',
-      description: `${backupFilename()} — у теці завантажень`,
+      title: 'Копію збережено',
+      description: backupFilename(),
       tone: 'ok',
     })
   }
