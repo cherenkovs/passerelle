@@ -1,6 +1,7 @@
 import { Loader2, RefreshCw, WifiOff } from 'lucide-react'
 import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Toaster } from '@/components/common/toaster'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
 import { initSync, useSync } from '@/lib/sync'
@@ -95,6 +96,9 @@ export default function App() {
 
   return (
     <HashRouter>
+      {/* At the root, not in the shell: onboarding has no shell, and signing
+          in — which is the first thing worth reporting — happens there. */}
+      <Toaster />
       <Routes>
         <Route path="/onboarding" element={<Onboarding />} />
 

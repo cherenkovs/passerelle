@@ -51,8 +51,9 @@ import {
 import { ProfilesCard } from '@/components/common/profiles-card'
 import { SyncCard } from '@/components/common/sync-card'
 import { VoiceHelp } from '@/components/common/voice-help'
-import { downloadBackup } from '@/lib/backup'
+import { backupFilename, downloadBackup } from '@/lib/backup'
 import { cn } from '@/lib/utils'
+import { toast } from '@/store/toasts'
 import { LEARNER_VERSION, useActiveProfile, useLearner, type Profile } from '@/store/learner'
 import { useSettings, type Theme } from '@/store/settings'
 
@@ -85,7 +86,10 @@ export function SettingsPage() {
 
   if (!profile) return null
 
-  const exportData = () => downloadBackup(profiles, LEARNER_VERSION)
+  const exportData = () => {
+    downloadBackup(profiles, LEARNER_VERSION)
+    toast({ title: 'Файл завантажено', description: backupFilename(), tone: 'ok' })
+  }
 
   /**
    * Which French a voice actually speaks.
@@ -119,9 +123,18 @@ export function SettingsPage() {
     reader.onload = () => {
       try {
         const data = JSON.parse(String(reader.result))
-        if (Array.isArray(data?.profiles)) importProfiles(data.profiles as Profile[])
+        if (Array.isArray(data?.profiles)) {
+          importProfiles(data.profiles as Profile[])
+          toast({
+            title: 'Дані імпортовано',
+            description: `Профілів: ${(data.profiles as Profile[]).length}`,
+            tone: 'ok',
+          })
+        } else {
+          toast({ title: 'Не схоже на файл Passerelle', tone: 'error' })
+        }
       } catch {
-        alert('Не вдалося прочитати файл.')
+        toast({ title: 'Не вдалося прочитати файл', tone: 'error' })
       }
     }
     reader.readAsText(file)
@@ -283,7 +296,13 @@ export function SettingsPage() {
                     // a restart.
                     onClick={() => {
                       refreshVoices()
-                      setVoices(frenchVoicesRanked())
+                      const list = frenchVoicesRanked()
+                      setVoices(list)
+                      toast({
+                        title: 'Список голосів оновлено',
+                        description: `Знайдено ${list.length}`,
+                        tone: 'info',
+                      })
                     }}
                     aria-label="Оновити список голосів"
                     title="Оновити список голосів"

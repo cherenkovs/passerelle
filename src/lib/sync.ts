@@ -3,6 +3,7 @@ import { loadFirebase } from './firebase'
 import { mergeProfileLists, mergeProfiles } from './merge'
 import { LEARNER_VERSION, normalizeProfile, useLearner, type Profile } from '@/store/learner'
 import { applySyncedSettings, syncedSettings, useSettings } from '@/store/settings'
+import { toast, toastOnce } from '@/store/toasts'
 
 /**
  * Sync across devices, through the learner's Google account.
@@ -124,12 +125,19 @@ async function push() {
       updatedAt: fb.firestore.serverTimestamp(),
     })
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
+    // Once per visible toast, not once per write: progress saves after every
+    // exercise, and a lesson would otherwise leave a column of identical notes.
+    toastOnce('Збережено', { title: 'Збережено', description: 'Прогрес в акаунті', tone: 'ok' })
     // Now it is in the account, the browser copy can go.
     dropLegacyLocalData()
   } catch (e) {
-    useSync.setState({
-      status: 'error',
-      error: e instanceof Error ? e.message : 'Не вдалося синхронізувати',
+    const message = e instanceof Error ? e.message : 'Не вдалося синхронізувати'
+    useSync.setState({ status: 'error', error: message })
+    toast({
+      title: 'Не збережено',
+      description: message,
+      tone: 'error',
+      action: { label: 'Спробувати ще раз', run: () => void push() },
     })
   }
 }
@@ -318,6 +326,7 @@ export async function signIn(): Promise<boolean> {
     const provider = new fb.auth.GoogleAuthProvider()
     try {
       await fb.auth.signInWithPopup(fb.authInstance, provider)
+      toast({ title: 'Вхід виконано', tone: 'ok' })
     } catch (inner) {
       const code = inner instanceof Error ? inner.message : String(inner)
       if (code.includes('popup-blocked') || code.includes('operation-not-supported')) {
@@ -372,6 +381,11 @@ export async function deleteAccount(): Promise<void> {
       // Firebase refuses this when the sign-in is old — the data is already
       // gone, so signing out is an honest end to it either way.
       await fb.auth.signOut(fb.authInstance)
+      toast({
+        title: 'Ви вийшли з акаунта',
+        description: 'Прогрес лишився в акаунті',
+        tone: 'info',
+      })
     }
   }
 
@@ -383,6 +397,7 @@ export async function deleteAccount(): Promise<void> {
     error: null,
     restoring: false,
   })
+  toast({ title: 'Акаунт видалено', description: 'Усі дані стерто з сервера', tone: 'ok' })
 }
 
 export async function signOut(): Promise<void> {
@@ -394,6 +409,7 @@ export async function signOut(): Promise<void> {
   stopSettings?.()
   stopSnapshot = stopStore = stopSettings = null
   await fb.auth.signOut(fb.authInstance)
+  toast({ title: 'Ви вийшли з акаунта', description: 'Прогрес лишився в акаунті', tone: 'info' })
   useSync.setState({
     status: 'off',
     email: null,

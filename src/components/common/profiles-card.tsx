@@ -12,6 +12,7 @@ import {
 import { mergeProfiles } from '@/lib/merge'
 import { cn } from '@/lib/utils'
 import { useLearner, type Profile } from '@/store/learner'
+import { toast } from '@/store/toasts'
 
 /**
  * Every name on the account, with enough detail to tell them apart.
@@ -44,6 +45,11 @@ export function ProfilesCard() {
     const one = ordered.reduce((acc, p) => mergeProfiles(acc, { ...p, id: acc.id, name: acc.name }))
     useLearner.setState({ profiles: [one], activeId: one.id })
     setConfirmMerge(false)
+    toast({
+      title: 'Профілі об’єднано',
+      description: `${ordered.length} → 1 · ${one.xp} XP разом`,
+      tone: 'ok',
+    })
   }
 
   return (
@@ -147,7 +153,10 @@ export function ProfilesCard() {
             <Button
               variant="danger"
               onClick={() => {
-                if (toDelete) deleteProfile(toDelete.id)
+                if (toDelete) {
+                  deleteProfile(toDelete.id)
+                  toast({ title: `Профіль «${toDelete.name}» видалено`, tone: 'info' })
+                }
                 setToDelete(null)
               }}
             >
