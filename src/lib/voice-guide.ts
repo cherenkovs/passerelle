@@ -14,6 +14,11 @@
  * Content", and «Вимовний контент» will not be on their screen anywhere.
  */
 
+import accessibilityIcon from '@/assets/os-icons/accessibility.png'
+import appleMenuIcon from '@/assets/os-icons/apple-menu.png'
+import downloadIcon from '@/assets/os-icons/download-button.png'
+import infoIcon from '@/assets/os-icons/info-button.png'
+
 export type Platform = 'macos' | 'ios' | 'windows' | 'android' | 'linux' | 'unknown'
 
 /** The three the learner might have their system in: their own, English, French. */
@@ -42,7 +47,17 @@ export function detectPlatform(ua = typeof navigator === 'undefined' ? '' : navi
 /** The control a step is pointing at, drawn beside it so it can be recognised. */
 export type StepIcon = 'settings' | 'accessibility' | 'speech' | 'info' | 'download' | 'globe'
 
-export type Step = Localized & { icon?: StepIcon }
+/**
+ * A step, and the control it names.
+ *
+ * `img` is the real glyph from the system's own documentation — Apple's Info
+ * button looks like Apple's Info button, not like an approximation of it. That
+ * matters more than it sounds: someone following instructions in a language
+ * they only half-read is matching shapes on screen, and a lookalike sends them
+ * hunting for something that is not there. `icon` is the fallback where no
+ * official glyph exists to use.
+ */
+export type Step = Localized & { icon?: StepIcon; img?: string; imgAlt?: string }
 
 export type VoiceGuide = {
   /** Voices worth having here, best first, matched as lowercase substrings. */
@@ -87,25 +102,29 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        icon: 'settings',
-        uk: 'Меню Apple  → «Системні параметри» → «Доступність» на бічній панелі (можливо, доведеться прокрутити вниз)',
-        en: 'Apple menu  → System Settings → Accessibility in the sidebar (you may need to scroll down)',
-        fr: 'Menu Pomme  → Réglages Système → Accessibilité dans la barre latérale (il faudra peut-être faire défiler)',
+        img: appleMenuIcon,
+        imgAlt: 'Меню Apple',
+        uk: 'Меню Apple → «Системні параметри» → «Доступність» на бічній панелі (можливо, доведеться прокрутити вниз)',
+        en: 'Apple menu → System Settings → Accessibility in the sidebar (you may need to scroll down)',
+        fr: 'Menu Pomme → Réglages Système → Accessibilité dans la barre latérale (il faudra peut-être faire défiler)',
       },
       {
-        icon: 'speech',
+        img: accessibilityIcon,
+        imgAlt: 'Доступність',
         uk: 'Клацни «Читання і мовлення» (у старіших macOS — «Вимовний контент»)',
         en: 'Click Read & Speak (called Spoken Content on older macOS)',
         fr: 'Clique sur « Lire et énoncer » (« Contenu énoncé » sur les anciens macOS)',
       },
       {
-        icon: 'info',
-        uk: 'Біля «Основний голос» клацни кнопку «Досьє» ⓘ',
-        en: 'Next to “System voice”, click the Info button ⓘ',
-        fr: 'En regard de « Voix système », clique sur le bouton d’informations ⓘ',
+        img: infoIcon,
+        imgAlt: 'Кнопка «Досьє»',
+        uk: 'Біля «Основний голос» клацни кнопку «Досьє»',
+        en: 'Next to “System voice”, click the Info button',
+        fr: 'En regard de « Voix système », clique sur le bouton d’informations',
       },
       {
-        icon: 'download',
+        img: downloadIcon,
+        imgAlt: 'Кнопка завантаження',
         uk: 'Français (France) → клацни Aurélie чи Audrey і завантаж; тоді перезапусти браузер',
         en: 'French (France) → click Aurélie or Audrey and download it, then restart the browser',
         fr: 'Français (France) → clique sur Aurélie ou Audrey et télécharge, puis redémarre le navigateur',

@@ -137,8 +137,18 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
                     {i + 1}
                   </span>
                   <span className="text-pretty">
-                    {Icon && (
-                      <Icon className="text-fg-subtle mr-1 inline size-3.5 translate-y-[-1px]" />
+                    {step.img ? (
+                      // The system's own glyph, at text height: the learner is
+                      // matching shapes on screen, not reading a label.
+                      <img
+                        src={step.img}
+                        alt={step.imgAlt ?? ''}
+                        className="mr-1 inline h-[1.05em] w-auto translate-y-[-1px] align-baseline"
+                      />
+                    ) : (
+                      Icon && (
+                        <Icon className="text-fg-subtle mr-1 inline size-3.5 translate-y-[-1px]" />
+                      )
                     )}
                     {step[lang]}
                   </span>

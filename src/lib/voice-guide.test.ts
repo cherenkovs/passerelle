@@ -126,13 +126,21 @@ describe('checking what is already installed', () => {
 })
 
 describe('every step points at something the learner can see', () => {
-  it('carries an icon for the control it names', () => {
+  it('carries a picture of the control it names', () => {
     // Menu names are the hard part of following instructions in a system whose
-    // language you half-read; the shape of a button is not.
+    // language you half-read; the shape of a button is not. Either the system's
+    // own glyph or, where there is none to use, an approximation.
     for (const p of ['macos', 'ios', 'windows', 'android'] as const) {
       for (const step of voiceGuide(p).steps) {
-        expect(step.icon).toBeTruthy()
+        expect(step.img ?? step.icon).toBeTruthy()
       }
     }
+  })
+
+  it('uses Apple’s real glyphs on the Mac steps', () => {
+    // A lookalike sends someone hunting for a control that is not there.
+    const mac = voiceGuide('macos').steps
+    expect(mac.filter((s) => s.img)).toHaveLength(4)
+    for (const step of mac) expect(step.imgAlt?.trim()).toBeTruthy()
   })
 })
