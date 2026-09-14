@@ -48,24 +48,62 @@ export function frenchVoices(): SpeechSynthesisVoice[] {
 }
 
 /**
- * Known-good French voices, best first.
+ * The novelty voices.
  *
- * Ordered by how well a learner is served, not by how the system lists them.
- * Female first, because the example on the onboarding gender question speaks
- * itself and used to open the whole course in a man's voice. Within that, the
- * classic Apple voices before the newer stylised ones, then the common Windows
- * and Google names, so a decent default is found off a Mac too.
+ * macOS ships a family of deliberately characterful voices — Grandma and
+ * Grandpa sound elderly, Rocko and Eddy are cartoonish, Bubbles and Zarvox are
+ * not trying to sound human at all. They are the ones that get described as
+ * robotic, and on a Mac with none of the good French voices downloaded they
+ * are most of what is installed, so they are easy to pick by accident.
  *
- * Alice leads by request. On most systems she is an Italian voice and will
- * never match here, which is the point: the variety of the voice is filtered
- * before this list is consulted, so she is only chosen where a French Alice
- * exists. French read by an Italian synthesiser teaches the wrong vowels.
+ * Never chosen automatically. A learner is judging their own pronunciation
+ * against whatever this says, and a comedy voice makes that impossible. They
+ * stay selectable by hand for anyone who wants one.
+ */
+const NOVELTY_VOICES = [
+  'eddy',
+  'flo',
+  'grandma',
+  'grandpa',
+  'reed',
+  'rocko',
+  'sandy',
+  'shelley',
+  'bahh',
+  'bells',
+  'boing',
+  'bubbles',
+  'cellos',
+  'jester',
+  'organ',
+  'superstar',
+  'trinoids',
+  'whisper',
+  'wobble',
+  'zarvox',
+  'albert',
+  'bad news',
+  'good news',
+]
+
+export function isNoveltyVoice(v: SpeechSynthesisVoice): boolean {
+  const name = v.name.toLowerCase()
+  return NOVELTY_VOICES.some((n) => name.startsWith(n) || name.includes(`(${n}`))
+}
+
+/**
+ * Real French voices, best first.
  *
- * Names are matched as substrings, so "Flo (French (France))" matches "flo".
+ * These are the ones built to sound like a person reading: Apple's classic
+ * French voices, Microsoft's, and Google's. Female before male, because the
+ * onboarding gender question speaks its own example and so the default is the
+ * first French anyone hears.
+ *
+ * Alice leads by request. On most systems she is Italian and never matches
+ * here, which is the point — variety is filtered before this list is read.
  */
 const VOICE_RANK = [
   'alice',
-  // Apple, classic — the clearest of the lot for a learner
   'aurélie',
   'aurelie',
   'audrey',
@@ -73,36 +111,50 @@ const VOICE_RANK = [
   'amélie',
   'amelie',
   'chantal',
-  // Apple, newer system voices — fine, but more stylised
-  'flo',
-  'sandy',
-  'shelley',
-  // Windows
   'denise',
   'julie',
   'hortense',
-  // Google / Chrome OS / Android
   'google français',
   'google french',
-  // Male voices last: still good, just not the default
   'thomas',
   'jacques',
   'nicolas',
   'paul',
   'henri',
-  'eddy',
-  'rocko',
-  'reed',
 ]
 
 function isFrance(v: SpeechSynthesisVoice) {
   return v.lang.toLowerCase().replace('_', '-') === 'fr-fr'
 }
 
+/**
+ * Apple and Microsoft ship several grades of the same voice, and the better
+ * ones are downloads rather than defaults. Where both are present, take the
+ * one that was deliberately installed.
+ */
+function isHighQuality(v: SpeechSynthesisVoice) {
+  return /\b(enhanced|premium|natural|neural)\b/i.test(v.name)
+}
+
 function rankOf(v: SpeechSynthesisVoice): number {
   const name = v.name.toLowerCase()
   const i = VOICE_RANK.findIndex((p) => name.includes(p))
   return i === -1 ? VOICE_RANK.length : i
+}
+
+/**
+ * A voice's name without the language spelled out again.
+ *
+ * The lists read "Flo (French (France)) · Франція", which says France twice and
+ * buries the only part that identifies the voice. Windows does the same with
+ * "Microsoft Denise - French (France)".
+ */
+export function voiceLabel(v: SpeechSynthesisVoice): string {
+  return v.name
+    .replace(/\s*[-–]\s*French.*$/i, '')
+    .replace(/\s*\(French.*$/i, '')
+    .replace(/^Microsoft\s+/i, '')
+    .trim()
 }
 
 /** Voices that threw while speaking; not offered again this session. */
@@ -123,7 +175,12 @@ const brokenVoices = new Set<string>()
 export function frenchVoicesRanked(): SpeechSynthesisVoice[] {
   const usable = frenchVoices().filter((v) => !brokenVoices.has(v.voiceURI))
   return usable.sort((a, b) => {
+    // A comedy voice is never the right answer for pronunciation practice, so
+    // this outranks even the variety of French: better a real Québécois voice
+    // than a cartoon Parisian one.
+    if (isNoveltyVoice(a) !== isNoveltyVoice(b)) return isNoveltyVoice(a) ? 1 : -1
     if (isFrance(a) !== isFrance(b)) return isFrance(a) ? -1 : 1
+    if (isHighQuality(a) !== isHighQuality(b)) return isHighQuality(a) ? -1 : 1
     if (a.localService !== b.localService) return a.localService ? -1 : 1
     return rankOf(a) - rankOf(b)
   })

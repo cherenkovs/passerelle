@@ -35,7 +35,15 @@ import {
 } from '@/components/ui/dialog'
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
-import { frenchVoicesRanked, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
+import {
+  frenchVoicesRanked,
+  isNoveltyVoice,
+  loadVoices,
+  slowRate,
+  supportsSTT,
+  supportsTTS,
+  voiceLabel,
+} from '@/lib/speech'
 import { ProfilesCard } from '@/components/common/profiles-card'
 import { SyncCard } from '@/components/common/sync-card'
 import { downloadBackup } from '@/lib/backup'
@@ -77,6 +85,15 @@ export function SettingsPage() {
    * picking by name can land a different accent from the one the course
    * teaches without ever being told.
    */
+  /**
+   * True when every French voice installed is one of the comedy ones.
+   *
+   * Worth saying out loud rather than quietly picking the least bad: the
+   * learner is judging their own pronunciation against this, and the fix is a
+   * one-minute download they have no reason to know about.
+   */
+  const needsBetterVoice = voices.length > 0 && voices.every(isNoveltyVoice)
+
   const frenchVariety = (lang: string) => {
     const tag = lang.toLowerCase().replace('_', '-')
     if (tag === 'fr-fr') return 'Франція'
@@ -213,7 +230,9 @@ export function SettingsPage() {
                 label="Французький голос"
                 description={
                   voices.length
-                    ? `Доступно ${voices.length}, найкращі — зверху. «Франція» — вимова, якої вчить курс.`
+                    ? needsBetterVoice
+                      ? 'У системі немає жодного природного французького голосу — лишилися тільки жартівливі. Додай Aurélie або Audrey: Системні параметри → Доступність → Вимовний контент → Системний голос → Керувати голосами.'
+                      : `Доступно ${voices.length}, найкращі — зверху. «Франція» — вимова, якої вчить курс.`
                     : 'Голоси ще завантажуються або відсутні в системі.'
                 }
               >
@@ -236,7 +255,8 @@ export function SettingsPage() {
                       <SelectItem value="auto">Автоматично</SelectItem>
                       {voices.map((v) => (
                         <SelectItem key={v.voiceURI} value={v.voiceURI}>
-                          {v.name} · {frenchVariety(v.lang)}
+                          {voiceLabel(v)} · {frenchVariety(v.lang)}
+                          {isNoveltyVoice(v) ? ' · жартівливий' : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>

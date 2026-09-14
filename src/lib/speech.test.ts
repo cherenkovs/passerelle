@@ -170,11 +170,37 @@ describe('choosing a French voice', () => {
     expect(pickDefaultFrenchVoice()?.name).toBe('Aurélie')
   })
 
-  it('falls back to the newer system voices when no classic one is installed', async () => {
-    install([voice('Eddy (French (France))', 'fr-FR'), voice('Shelley (French (France))', 'fr-FR')])
+  it('never picks a comedy voice when a real one exists', async () => {
+    // Flo, Sandy, Grandma and the rest are macOS novelty voices. They are what
+    // gets described as robotic, and on a Mac without the good French voices
+    // downloaded they are most of what is installed.
+    install([voice('Flo (French (France))', 'fr-FR'), voice('Thomas', 'fr-FR')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
-    expect(pickDefaultFrenchVoice()?.name).toBe('Shelley (French (France))')
+    expect(pickDefaultFrenchVoice()?.name).toBe('Thomas')
+  })
+
+  it('would rather cross the Atlantic than use a cartoon', async () => {
+    // A real Québécois voice teaches a real accent. A comedy Parisian one
+    // teaches nothing a learner can measure themselves against.
+    install([voice('Grandpa (French (France))', 'fr-FR'), voice('Amélie', 'fr-CA')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Amélie')
+  })
+
+  it('takes the enhanced build of a voice over the compact one', async () => {
+    install([voice('Thomas', 'fr-FR'), voice('Aurélie (Enhanced)', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Aurélie (Enhanced)')
+  })
+
+  it('still offers a novelty voice when there is nothing else', async () => {
+    install([voice('Flo (French (France))', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Flo (French (France))')
   })
 
   it('takes Amélie when the device has no metropolitan voice at all', async () => {
@@ -473,5 +499,25 @@ describe('resolving the learner’s chosen voice', () => {
     await loadVoices()
     // The caller then uses the best French voice actually present.
     expect(resolveVoice('urn:absent', 'Aurélie')).toBeUndefined()
+  })
+})
+
+describe('how a voice is named in the list', () => {
+  it('drops the language that the variety label already says', async () => {
+    const { voiceLabel } = await import('./speech')
+    // The list read "Flo (French (France)) · Франція" — France twice, and the
+    // only part identifying the voice buried at the front.
+    expect(voiceLabel({ name: 'Flo (French (France))' } as SpeechSynthesisVoice)).toBe('Flo')
+    expect(voiceLabel({ name: 'Microsoft Denise - French (France)' } as SpeechSynthesisVoice)).toBe(
+      'Denise',
+    )
+  })
+
+  it('leaves a plain name alone', async () => {
+    const { voiceLabel } = await import('./speech')
+    expect(voiceLabel({ name: 'Thomas' } as SpeechSynthesisVoice)).toBe('Thomas')
+    expect(voiceLabel({ name: 'Aurélie (Enhanced)' } as SpeechSynthesisVoice)).toBe(
+      'Aurélie (Enhanced)',
+    )
   })
 })
