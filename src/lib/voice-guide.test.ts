@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { detectPlatform, installedRecommended, missingRecommended, voiceGuide } from './voice-guide'
+import {
+  STEP_IMAGES,
+  detectPlatform,
+  installedRecommended,
+  missingRecommended,
+  voiceGuide,
+} from './voice-guide'
 
 const UA = {
   mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/152 Safari/537.36',
@@ -81,7 +87,9 @@ describe('advice matches the system', () => {
     // what Apple's own article says. An earlier version sent people to "Manage
     // Voices", which is not how this screen works.
     expect(mac[2].en).toContain('System voice')
-    expect(mac[2].en).toContain('Info button')
+    // The Info button is shown, not spelled out: the glyph goes in the
+    // sentence where Apple puts it.
+    expect(mac[2].en).toContain('{info}')
     expect(mac[2].fr).toContain('Voix système')
     expect(mac[2].uk).toContain('Основний голос')
 
@@ -126,21 +134,37 @@ describe('checking what is already installed', () => {
 })
 
 describe('every step points at something the learner can see', () => {
-  it('carries a picture of the control it names', () => {
-    // Menu names are the hard part of following instructions in a system whose
-    // language you half-read; the shape of a button is not. Either the system's
-    // own glyph or, where there is none to use, an approximation.
-    for (const p of ['macos', 'ios', 'windows', 'android'] as const) {
+  it('only references glyphs that exist', () => {
+    // An unknown marker renders as literal "{info}" in the middle of a
+    // sentence — visible, but only to whoever happens to open that platform.
+    for (const p of ['macos', 'ios', 'windows', 'android', 'linux', 'unknown'] as const) {
       for (const step of voiceGuide(p).steps) {
-        expect(step.img ?? step.icon).toBeTruthy()
+        for (const lang of ['uk', 'en', 'fr'] as const) {
+          for (const m of step[lang].matchAll(/\{([a-zA-Z]+)\}/g)) {
+            expect(STEP_IMAGES[m[1]]).toBeTruthy()
+          }
+        }
       }
     }
   })
 
-  it('uses Apple’s real glyphs on the Mac steps', () => {
+  it('puts the same glyphs in all three languages of a step', () => {
+    // A step that shows the Info button in English and omits it in Ukrainian
+    // is two different instructions.
+    for (const p of ['macos', 'ios', 'windows'] as const) {
+      for (const step of voiceGuide(p).steps) {
+        const marks = (l: 'uk' | 'en' | 'fr') =>
+          [...step[l].matchAll(/\{([a-zA-Z]+)\}/g)].map((m) => m[1])
+        expect(marks('en')).toEqual(marks('uk'))
+        expect(marks('fr')).toEqual(marks('uk'))
+      }
+    }
+  })
+
+  it('shows the real system glyphs where the maker publishes them', () => {
     // A lookalike sends someone hunting for a control that is not there.
-    const mac = voiceGuide('macos').steps
-    expect(mac.filter((s) => s.img)).toHaveLength(4)
-    for (const step of mac) expect(step.imgAlt?.trim()).toBeTruthy()
+    expect(voiceGuide('macos').steps[0].en).toContain('{apple}')
+    expect(voiceGuide('macos').steps[2].en).toContain('{info}')
+    expect(voiceGuide('windows').steps[0].en).toContain('{win}')
   })
 })

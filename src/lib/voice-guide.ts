@@ -18,6 +18,9 @@ import accessibilityIcon from '@/assets/os-icons/accessibility.png'
 import appleMenuIcon from '@/assets/os-icons/apple-menu.png'
 import downloadIcon from '@/assets/os-icons/download-button.png'
 import infoIcon from '@/assets/os-icons/info-button.png'
+import winLanguageIcon from '@/assets/os-icons/windows-language.png'
+import winLogoIcon from '@/assets/os-icons/windows-logo.png'
+import winSettingsIcon from '@/assets/os-icons/windows-settings.png'
 
 export type Platform = 'macos' | 'ios' | 'windows' | 'android' | 'linux' | 'unknown'
 
@@ -44,20 +47,29 @@ export function detectPlatform(ua = typeof navigator === 'undefined' ? '' : navi
   return 'unknown' as Platform
 }
 
-/** The control a step is pointing at, drawn beside it so it can be recognised. */
-export type StepIcon = 'settings' | 'accessibility' | 'speech' | 'info' | 'download' | 'globe'
-
 /**
- * A step, and the control it names.
+ * A step, with glyphs written into the sentence where they belong.
  *
- * `img` is the real glyph from the system's own documentation — Apple's Info
- * button looks like Apple's Info button, not like an approximation of it. That
- * matters more than it sounds: someone following instructions in a language
- * they only half-read is matching shapes on screen, and a lookalike sends them
- * hunting for something that is not there. `icon` is the fallback where no
- * official glyph exists to use.
+ * The text carries markers like {apple}, replaced by the real image from the
+ * system's own documentation. Inline and in position, the way Apple writes it:
+ * "choose Apple menu {apple} > System Settings, then click Accessibility
+ * {accessibility} in the sidebar". An icon parked at the start of the line is
+ * detached from the control it names, which is the one thing it was for —
+ * someone half-reading a foreign menu is matching a shape to a word, and the
+ * shape has to sit next to the word.
  */
-export type Step = Localized & { icon?: StepIcon; img?: string; imgAlt?: string }
+export type Step = Localized
+
+/** Glyphs a step's text can reference by name. */
+export const STEP_IMAGES: Record<string, { src: string; alt: string }> = {
+  apple: { src: appleMenuIcon, alt: 'Apple' },
+  accessibility: { src: accessibilityIcon, alt: 'Accessibility' },
+  info: { src: infoIcon, alt: 'Info' },
+  download: { src: downloadIcon, alt: 'Download' },
+  win: { src: winLogoIcon, alt: 'Windows' },
+  winSettings: { src: winSettingsIcon, alt: 'Settings' },
+  winLanguage: { src: winLanguageIcon, alt: 'Time & language' },
+}
 
 export type VoiceGuide = {
   /** Voices worth having here, best first, matched as lowercase substrings. */
@@ -102,32 +114,29 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        img: appleMenuIcon,
-        imgAlt: 'Меню Apple',
-        uk: 'Меню Apple → «Системні параметри» → «Доступність» на бічній панелі (можливо, доведеться прокрутити вниз)',
-        en: 'Apple menu → System Settings → Accessibility in the sidebar (you may need to scroll down)',
-        fr: 'Menu Pomme → Réglages Système → Accessibilité dans la barre latérale (il faudra peut-être faire défiler)',
+        uk: 'Меню Apple {apple} → «Системні параметри» → «Доступність» {accessibility} на бічній панелі (можливо, доведеться прокрутити вниз)',
+        en: 'Apple menu {apple} → System Settings, then click Accessibility {accessibility} in the sidebar (you may need to scroll down)',
+        fr: 'Menu Pomme {apple} → Réglages Système, puis Accessibilité {accessibility} dans la barre latérale (il faudra peut-être faire défiler)',
       },
       {
-        img: accessibilityIcon,
-        imgAlt: 'Доступність',
         uk: 'Клацни «Читання і мовлення» (у старіших macOS — «Вимовний контент»)',
         en: 'Click Read & Speak (called Spoken Content on older macOS)',
         fr: 'Clique sur « Lire et énoncer » (« Contenu énoncé » sur les anciens macOS)',
       },
       {
-        img: infoIcon,
-        imgAlt: 'Кнопка «Досьє»',
-        uk: 'Біля «Основний голос» клацни кнопку «Досьє»',
-        en: 'Next to “System voice”, click the Info button',
-        fr: 'En regard de « Voix système », clique sur le bouton d’informations',
+        uk: 'Клацни {info} поруч із «Основний голос», тоді вибери ім’я зліва',
+        en: 'Click {info} next to “System voice”, then select a name on the left',
+        fr: 'Clique sur {info} en regard de « Voix système », puis choisis un nom à gauche',
       },
       {
-        img: downloadIcon,
-        imgAlt: 'Кнопка завантаження',
-        uk: 'Français (France) → клацни Aurélie чи Audrey і завантаж; тоді перезапусти браузер',
-        en: 'French (France) → click Aurélie or Audrey and download it, then restart the browser',
-        fr: 'Français (France) → clique sur Aurélie ou Audrey et télécharge, puis redémarre le navigateur',
+        uk: 'Français (France) → клацни Aurélie чи Audrey. Якщо поруч {download} — голос завантажиться з Apple',
+        en: 'French (France) → click Aurélie or Audrey. If {download} is shown, it downloads from Apple',
+        fr: 'Français (France) → clique sur Aurélie ou Audrey. Si {download} apparaît, la voix se télécharge',
+      },
+      {
+        uk: 'Дочекайся завантаження, тоді перезапусти браузер',
+        en: 'Wait for the download to finish, then restart the browser',
+        fr: 'Attends la fin du téléchargement, puis redémarre le navigateur',
       },
     ],
     href: {
@@ -142,22 +151,19 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        icon: 'settings',
-        uk: 'Параметри → «Доступність» → «Читання і мовлення» (раніше «Вимовний контент»)',
-        en: 'Settings → Accessibility → Read & Speak (formerly Spoken Content)',
-        fr: 'Réglages → Accessibilité → « Lire et énoncer » (autrefois « Contenu énoncé »)',
+        uk: 'Параметри → «Доступність» {accessibility} → «Читання і мовлення» (раніше «Вимовний контент»)',
+        en: 'Settings → Accessibility {accessibility} → Read & Speak (formerly Spoken Content)',
+        fr: 'Réglages → Accessibilité {accessibility} → « Lire et énoncer » (autrefois « Contenu énoncé »)',
       },
       {
-        icon: 'speech',
         uk: '«Голоси» → «Французька»',
         en: 'Voices → French',
         fr: '« Voix » → « Français »',
       },
       {
-        icon: 'download',
-        uk: 'Завантаж Aurélie або Audrey',
-        en: 'Download Aurélie or Audrey',
-        fr: 'Télécharge Aurélie ou Audrey',
+        uk: 'Торкнись {download} біля Aurélie або Audrey',
+        en: 'Tap {download} next to Aurélie or Audrey',
+        fr: 'Touche {download} à côté d’Aurélie ou Audrey',
       },
     ],
     href: {
@@ -172,25 +178,21 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['denise', 'hortense', 'julie', 'paul'],
     steps: [
       {
-        icon: 'settings',
-        uk: 'Параметри → Час і мова → Мова та регіон',
-        en: 'Settings → Time & language → Language & region',
-        fr: 'Paramètres → Heure et langue → Langue et région',
+        uk: '{win} Пуск → {winSettings} «Параметри» → {winLanguage} «Час і мова» → «Мова та регіон»',
+        en: '{win} Start → {winSettings} Settings → {winLanguage} Time & language → Language & region',
+        fr: '{win} Démarrer → {winSettings} Paramètres → {winLanguage} Heure et langue → Langue et région',
       },
       {
-        icon: 'globe',
-        uk: 'Додати мову → «Французька (Франція)»',
+        uk: '«Додати мову» → «Французька (Франція)»',
         en: 'Add a language → “French (France)”',
         fr: 'Ajouter une langue → « Français (France) »',
       },
       {
-        icon: 'speech',
-        uk: 'У параметрах мови постав «Мовлення»',
-        en: 'In Language options, tick “Speech”',
-        fr: 'Dans Options linguistiques, coche « Voix »',
+        uk: 'У параметрах цієї мови постав «Мовлення» — саме воно ставить голос',
+        en: 'In that language’s options, tick “Speech” — that is what installs the voice',
+        fr: 'Dans les options de cette langue, coche « Voix » — c’est ce qui installe la voix',
       },
       {
-        icon: 'download',
         uk: 'Перезапусти браузер',
         en: 'Restart the browser',
         fr: 'Redémarre le navigateur',
@@ -216,19 +218,16 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['google français', 'google french', 'français'],
     steps: [
       {
-        icon: 'settings',
         uk: 'Налаштування → Спеціальні можливості → Синтез мовлення',
         en: 'Settings → Accessibility → Text-to-speech output',
         fr: 'Paramètres → Accessibilité → Synthèse vocale',
       },
       {
-        icon: 'speech',
         uk: 'Google Синтезатор мовлення → Встановити мовні дані',
         en: 'Google Text-to-speech → Install voice data',
         fr: 'Synthèse vocale Google → Installer les données vocales',
       },
       {
-        icon: 'download',
         uk: 'Завантаж «Français (France)»',
         en: 'Download “Français (France)”',
         fr: 'Télécharge « Français (France) »',
