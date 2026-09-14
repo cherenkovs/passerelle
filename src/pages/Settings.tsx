@@ -36,6 +36,7 @@ import {
 import { Input, Label } from '@/components/ui/input'
 import { COURSES } from '@/content'
 import { frenchVoices, loadVoices, slowRate, supportsSTT, supportsTTS } from '@/lib/speech'
+import { ProfilesCard } from '@/components/common/profiles-card'
 import { SyncCard } from '@/components/common/sync-card'
 import { downloadBackup } from '@/lib/backup'
 import { cn } from '@/lib/utils'
@@ -350,6 +351,14 @@ export function SettingsPage() {
         <SectionTitle>Акаунт</SectionTitle>
         <Card className="p-5">
           <SyncCard />
+        </Card>
+      </section>
+
+      {/* Profiles */}
+      <section>
+        <SectionTitle>Імена на цьому акаунті</SectionTitle>
+        <Card className="p-5">
+          <ProfilesCard />
         </Card>
       </section>
 
