@@ -1,7 +1,8 @@
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw, WifiOff } from 'lucide-react'
 import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
+import { Button } from '@/components/ui/button'
 import { requestPersistence } from '@/lib/storage'
 import { initSync, useSync } from '@/lib/sync'
 import { CoursePage } from '@/pages/Course'
@@ -40,24 +41,51 @@ function PageFallback() {
 function RequireProfile({ children }: { children: React.ReactNode }) {
   const hasProfile = useLearner((s) => s.profiles.some((p) => p.id === s.activeId))
   const restoring = useSync((s) => s.restoring)
+  const syncError = useSync((s) => s.error)
   const location = useLocation()
 
   // The account's data is still arriving. Sending them to onboarding here would
   // mean a returning learner is asked to set up a course they already have,
   // every time they open the app.
-  if (restoring && !hasProfile) {
-    return (
-      <div className="bg-bg grid min-h-[100dvh] place-items-center">
-        <div className="text-fg-muted flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin" />
-          <p className="text-sm">Відновлюю твій прогрес…</p>
-        </div>
-      </div>
-    )
-  }
+  if (restoring && !hasProfile) return <Loading />
+
+  // Nothing is kept in this browser, so without a connection there is genuinely
+  // nothing to show. Say that, rather than spinning forever on a request that
+  // cannot arrive.
+  if (syncError && !hasProfile) return <Offline message={syncError} />
 
   if (!hasProfile) return <Navigate to="/onboarding" replace state={{ from: location }} />
   return <AppShell>{children}</AppShell>
+}
+
+function Loading() {
+  return (
+    <div className="bg-bg grid min-h-[100dvh] place-items-center px-6">
+      <div className="text-fg-muted flex flex-col items-center gap-3">
+        <Loader2 className="size-6 animate-spin" />
+        <p className="text-sm">Завантажую твій акаунт…</p>
+      </div>
+    </div>
+  )
+}
+
+function Offline({ message }: { message: string }) {
+  return (
+    <div className="bg-bg grid min-h-[100dvh] place-items-center px-6">
+      <div className="max-w-sm text-center">
+        <WifiOff className="text-fg-subtle mx-auto size-8" />
+        <h1 className="font-display mt-4 text-2xl font-semibold tracking-tight">Немає зв’язку</h1>
+        <p className="text-fg-muted mt-2 text-[14px] leading-relaxed text-pretty">
+          Прогрес зберігається у твоєму акаунті, тож для навчання потрібен інтернет. Перевір
+          з’єднання і спробуй ще раз.
+        </p>
+        <p className="text-fg-subtle mt-3 font-mono text-[11px] break-words">{message}</p>
+        <Button className="mt-5" onClick={() => window.location.reload()}>
+          <RefreshCw className="size-4" /> Спробувати ще раз
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export default function App() {

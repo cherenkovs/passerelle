@@ -406,8 +406,7 @@ export function SettingsPage() {
       </section>
 
       <p className="text-fg-subtle pb-6 text-center text-[12px] text-pretty">
-        Passerelle · курс французької для українців · працює офлайн після входу · без підписок і без
-        відстеження
+        Passerelle · курс французької для українців · без підписок і без відстеження
       </p>
 
       {/* Confirmations */}

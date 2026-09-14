@@ -395,8 +395,7 @@ export function VideoPage() {
             <Headphones className="size-8" />
           </span>
           <p className="text-fg-muted text-center text-sm text-pretty">
-            Аудіоурок озвучується вбудованим синтезатором мовлення — працює офлайн і нічого не
-            коштує.
+            Аудіоурок озвучується вбудованим синтезатором мовлення — нічого не коштує.
           </p>
           <Button onClick={playAll} size="lg" className="mt-2">
             {playingAll ? <Pause /> : <Play />}

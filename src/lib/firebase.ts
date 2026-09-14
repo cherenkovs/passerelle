@@ -36,14 +36,17 @@ async function init() {
   ])
   const app = initializeApp(config)
 
-  // Firestore keeps its own cache and queues writes made offline. With the
-  // profile no longer mirrored into localStorage, this is what lets a lesson
-  // on a train finish and reach the account when the signal comes back.
-  // Multi-tab so two open tabs share one cache instead of fighting over it.
+  // Memory cache, not the persistent one. The learner's data is the account's,
+  // and writing a copy of it into this browser's IndexedDB would put it back
+  // where it is not wanted — a second copy, outliving the session, able to
+  // disagree with the server. It lives in memory for as long as the page is
+  // open and goes when the tab does.
+  //
+  // The price is offline study, and it is paid deliberately: this is an app
+  // that talks to a database, and without a connection there is nothing to
+  // show.
   const db = firestore.initializeFirestore(app, {
-    localCache: firestore.persistentLocalCache({
-      tabManager: firestore.persistentMultipleTabManager(),
-    }),
+    localCache: firestore.memoryLocalCache(),
   })
 
   return { app, auth, firestore, authInstance: auth.getAuth(app), db }
