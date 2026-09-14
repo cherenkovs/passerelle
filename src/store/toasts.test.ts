@@ -42,3 +42,21 @@ describe('repeat events', () => {
     expect(useToasts.getState().toasts.map((t) => t.title)).toEqual(['Збережено', 'Не збережено'])
   })
 })
+
+describe('one save, worded for what was saved', () => {
+  it('groups repeats by key even when the wording differs', async () => {
+    // "Прогрес збережено" and "Налаштування збережено" are both one save;
+    // matching on the text would stack them as two.
+    toastOnce('save', { title: 'Прогрес збережено', tone: 'ok' })
+    toastOnce('save', { title: 'Налаштування збережено', tone: 'ok' })
+    const list = useToasts.getState().toasts
+    expect(list).toHaveLength(1)
+    expect(list[0].title).toBe('Налаштування збережено')
+  })
+
+  it('keeps unrelated events apart', () => {
+    toastOnce('save', { title: 'Прогрес збережено', tone: 'ok' })
+    toastOnce('signin', { title: 'Вхід виконано', tone: 'ok' })
+    expect(useToasts.getState().toasts).toHaveLength(2)
+  })
+})

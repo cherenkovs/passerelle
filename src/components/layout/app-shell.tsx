@@ -27,7 +27,6 @@ import { Wordmark } from '@/components/common/misc'
 import { Button } from '@/components/ui/button'
 import { cn, pluralUk, todayKey } from '@/lib/utils'
 import { SignInPill } from '@/components/common/signin-pill'
-import { SyncStatus } from '@/components/common/sync-status'
 import { signOut, useSync } from '@/lib/sync'
 import { useLearner, useActiveProfile } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -275,11 +274,7 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
             {profile?.streakCurrent ?? 0}
           </span>
         </div>
-
-        {/* Mutually exclusive: one asks you to sign in, the other reports
-            what has reached the account once you have. */}
         <SignInPill />
-        <SyncStatus />
 
         <ProfileMenu />
       </div>

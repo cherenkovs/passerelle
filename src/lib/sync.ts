@@ -56,6 +56,15 @@ let stopSnapshot: (() => void) | null = null
 let stopStore: (() => void) | null = null
 let stopSettings: (() => void) | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * What is waiting to go up, so the toast can say which it was.
+ *
+ * Both stores feed the same write, and reporting a changed voice as "прогрес
+ * збережено" describes something the learner did not do.
+ */
+type PushReason = 'progress' | 'settings' | 'both'
+let pendingReason: PushReason | null = null
 let applying = false
 
 function profilesOf(): Profile[] {
@@ -127,7 +136,12 @@ async function push() {
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
     // Once per visible toast, not once per write: progress saves after every
     // exercise, and a lesson would otherwise leave a column of identical notes.
-    toastOnce('Збережено', { title: 'Збережено', description: 'Прогрес в акаунті', tone: 'ok' })
+    // Nothing pending means this is the push on connect, which has nothing to
+    // announce: the learner did not just do anything.
+    if (pendingReason) {
+      toastOnce('save', { ...SAVED_COPY[pendingReason], tone: 'ok' })
+      pendingReason = null
+    }
     // Now it is in the account, the browser copy can go.
     dropLegacyLocalData()
   } catch (e) {
@@ -142,10 +156,17 @@ async function push() {
   }
 }
 
-function schedulePush() {
+function schedulePush(reason: PushReason) {
   if (applying) return
+  pendingReason = !pendingReason || pendingReason === reason ? reason : 'both'
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
+}
+
+const SAVED_COPY: Record<PushReason, { title: string; description: string }> = {
+  progress: { title: 'Прогрес збережено', description: 'Урок, картки й статистика — в акаунті' },
+  settings: { title: 'Налаштування збережено', description: 'Діятимуть на всіх пристроях' },
+  both: { title: 'Збережено', description: 'Прогрес і налаштування — в акаунті' },
 }
 
 /** Preferences are last-write-wins: there is nothing to merge about a theme. */
@@ -222,9 +243,9 @@ async function startSyncing() {
 
       // Now — and not before — it is safe to send anything back.
       stopStore?.()
-      stopStore = useLearner.subscribe(schedulePush)
+      stopStore = useLearner.subscribe(() => schedulePush('progress'))
       stopSettings?.()
-      stopSettings = useSettings.subscribe(schedulePush)
+      stopSettings = useSettings.subscribe(() => schedulePush('settings'))
 
       // One push on connect, so work done offline reaches the account even if
       // nothing changes afterwards.
@@ -325,8 +346,12 @@ export async function signIn(): Promise<boolean> {
     const fb = await loadFirebase()
     const provider = new fb.auth.GoogleAuthProvider()
     try {
-      await fb.auth.signInWithPopup(fb.authInstance, provider)
-      toast({ title: 'Вхід виконано', tone: 'ok' })
+      const credential = await fb.auth.signInWithPopup(fb.authInstance, provider)
+      toast({
+        title: 'Вхід виконано',
+        description: credential.user.email ?? undefined,
+        tone: 'ok',
+      })
     } catch (inner) {
       const code = inner instanceof Error ? inner.message : String(inner)
       if (code.includes('popup-blocked') || code.includes('operation-not-supported')) {
@@ -379,13 +404,10 @@ export async function deleteAccount(): Promise<void> {
       await user.delete()
     } catch {
       // Firebase refuses this when the sign-in is old — the data is already
-      // gone, so signing out is an honest end to it either way.
+      // gone, so signing out is an honest end to it either way. No toast:
+      // the caller reports the account removal, and "прогрес лишився в
+      // акаунті" would be plainly false right after erasing it.
       await fb.auth.signOut(fb.authInstance)
-      toast({
-        title: 'Ви вийшли з акаунта',
-        description: 'Прогрес лишився в акаунті',
-        tone: 'info',
-      })
     }
   }
 

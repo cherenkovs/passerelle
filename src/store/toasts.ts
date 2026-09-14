@@ -5,6 +5,8 @@ export type ToastTone = 'ok' | 'error' | 'info'
 
 export type Toast = {
   id: string
+  /** Groups repeats of the same event, independently of how it is worded. */
+  key?: string
   title: string
   description?: string
   tone: ToastTone
@@ -67,9 +69,12 @@ export function toast(t: Omit<Toast, 'id'>): string {
  * column of identical "Збережено" notes. This keeps the most recent one and
  * lets its timer start again.
  */
-export function toastOnce(key: string, t: Omit<Toast, 'id'>): void {
+export function toastOnce(key: string, t: Omit<Toast, 'id' | 'key'>): void {
   const { toasts, dismiss, push } = useToasts.getState()
-  const existing = toasts.find((x) => x.title === key)
+  // Matched on the key, not the wording: the same event can be phrased
+  // differently — "Прогрес збережено" and "Налаштування збережено" are both
+  // one save — and matching on text would stack them.
+  const existing = toasts.find((x) => x.key === key)
   if (existing) dismiss(existing.id)
-  push(t)
+  push({ ...t, key })
 }

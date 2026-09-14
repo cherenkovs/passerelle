@@ -88,7 +88,11 @@ export function SettingsPage() {
 
   const exportData = () => {
     downloadBackup(profiles, LEARNER_VERSION)
-    toast({ title: 'Файл завантажено', description: backupFilename(), tone: 'ok' })
+    toast({
+      title: 'Копію даних збережено',
+      description: `${backupFilename()} — у теці завантажень`,
+      tone: 'ok',
+    })
   }
 
   /**
@@ -300,8 +304,10 @@ export function SettingsPage() {
                       setVoices(list)
                       toast({
                         title: 'Список голосів оновлено',
-                        description: `Знайдено ${list.length}`,
-                        tone: 'info',
+                        description: list.length
+                          ? `Французьких голосів: ${list.length}`
+                          : 'Французьких голосів не знайдено',
+                        tone: list.length ? 'info' : 'error',
                       })
                     }}
                     aria-label="Оновити список голосів"
