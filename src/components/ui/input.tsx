@@ -32,6 +32,17 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
   )
 }
 
+/**
+ * A form label, above its control.
+ *
+ * Block, because a <label> is inline by default and an <input> is
+ * inline-block: left alone they share a line, so "Ім’я" sat beside its field
+ * instead of above it, unlike every other label on the page. Vertical margins
+ * do not apply to inline elements either, so the mt-1.5 meant to separate them
+ * was doing nothing.
+ */
 export function Label({ className, ...props }: ComponentProps<'label'>) {
-  return <label className={cn('text-fg-muted text-[13px] font-medium', className)} {...props} />
+  return (
+    <label className={cn('text-fg-muted block text-[13px] font-medium', className)} {...props} />
+  )
 }

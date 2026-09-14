@@ -126,7 +126,7 @@ function NotesTab() {
             className="mt-1.5"
             autoFocus
           />
-          <Label htmlFor="n-body" className="mt-4 block">
+          <Label htmlFor="n-body" className="mt-4">
             Нотатка
           </Label>
           <Textarea
