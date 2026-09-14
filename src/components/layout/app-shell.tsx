@@ -284,7 +284,6 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
 }
 
 function ProfileMenu() {
-  const email = useSync((s) => s.email)
   const signedIn = useSync((s) => s.status !== 'off')
   const profiles = useLearner((s) => s.profiles)
   const activeId = useLearner((s) => s.activeId)
@@ -346,9 +345,6 @@ function ProfileMenu() {
           {signedIn && (
             <>
               <DropdownMenu.Separator className="bg-line my-1.5 h-px" />
-              <DropdownMenu.Label className="text-fg-subtle truncate px-2.5 pb-1 text-[11px]">
-                {email}
-              </DropdownMenu.Label>
               <DropdownMenu.Item
                 onSelect={() => void signOut()}
                 className="text-danger data-[highlighted]:bg-danger-soft flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none"
