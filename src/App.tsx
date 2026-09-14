@@ -3,7 +3,6 @@ import { Suspense, lazy, useEffect } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { Button } from '@/components/ui/button'
-import { requestPersistence } from '@/lib/storage'
 import { initSync, useSync } from '@/lib/sync'
 import { CoursePage } from '@/pages/Course'
 import { Dashboard } from '@/pages/Dashboard'
@@ -90,11 +89,7 @@ function Offline({ message }: { message: string }) {
 
 export default function App() {
   useEffect(() => {
-    // Ask the browser not to evict this origin's data on its own when space
-    // runs short. It does nothing against a deliberate clear-out — see
-    // lib/storage.ts — but it removes the one loss the learner never chose.
-    void requestPersistence()
-    // Only touches the network for a browser that has signed in before.
+    // Asks Firebase who is signed in, and follows that for the session.
     void initSync()
   }, [])
 

@@ -342,6 +342,49 @@ export async function signIn(): Promise<boolean> {
   }
 }
 
+/**
+ * Delete the account's data, then the account itself.
+ *
+ * An app that holds a person's data on a server owes them a way to take it
+ * back. The document goes first: if the sign-out or the account deletion fails
+ * afterwards, the learner is merely still signed in, whereas the reverse order
+ * can leave data behind that nobody can reach or remove any more.
+ */
+export async function deleteAccount(): Promise<void> {
+  const target = await userDoc()
+  if (!target) throw new Error('Немає входу')
+  const { fb, ref } = target
+
+  // Stop the subscriptions first, or the delete comes back as a snapshot and
+  // the store tries to sync its way out of it.
+  stopSnapshot?.()
+  stopStore?.()
+  stopSettings?.()
+  stopSnapshot = stopStore = stopSettings = null
+
+  await fb.firestore.deleteDoc(ref)
+
+  const user = fb.authInstance.currentUser
+  if (user) {
+    try {
+      await user.delete()
+    } catch {
+      // Firebase refuses this when the sign-in is old — the data is already
+      // gone, so signing out is an honest end to it either way.
+      await fb.auth.signOut(fb.authInstance)
+    }
+  }
+
+  useLearner.setState({ profiles: [], activeId: null })
+  useSync.setState({
+    status: 'off',
+    email: null,
+    lastSyncedAt: null,
+    error: null,
+    restoring: false,
+  })
+}
+
 export async function signOut(): Promise<void> {
   const fb = await loadFirebase()
   // One last push, so work from this session is not stranded on this device.

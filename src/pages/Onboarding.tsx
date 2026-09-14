@@ -258,20 +258,11 @@ export function Onboarding() {
                   <div className="border-danger-border bg-danger-soft mt-5 rounded-2xl border p-4">
                     <p className="text-danger flex items-start gap-2 text-[13.5px] leading-snug text-pretty">
                       <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                      <span>Не вдалося увійти: {signInError}</span>
+                      <span>
+                        Не вдалося увійти: {signInError}. Спробуй ще раз — без акаунта прогрес
+                        нікуди не збережеться.
+                      </span>
                     </p>
-                    {/*
-                      Only offered after a failure. Sign-in is the way in, but a
-                      blocked popup or a dead connection must not leave someone
-                      locked out of a course that runs perfectly offline.
-                    */}
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      className="text-fg-muted mt-3 text-[13px] underline underline-offset-4"
-                    >
-                      Продовжити без акаунта — прогрес буде лише на цьому пристрої
-                    </button>
                   </div>
                 )}
               </div>

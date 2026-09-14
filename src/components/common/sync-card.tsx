@@ -1,6 +1,15 @@
-import { AlertTriangle, Check, Loader2, LogOut, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Check, Loader2, LogOut, RefreshCw, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { attachAfterSignIn, signIn, signOut, useSync } from '@/lib/sync'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { attachAfterSignIn, deleteAccount, signIn, signOut, useSync } from '@/lib/sync'
 
 /** Google's mark, so the button looks like every other Google sign-in. */
 export function GoogleMark({ className = 'size-4' }: { className?: string }) {
@@ -40,6 +49,8 @@ export function SyncCard() {
   const lastSyncedAt = useSync((s) => s.lastSyncedAt)
 
   const busy = status === 'connecting' || status === 'syncing'
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   return (
     <div className="text-[13px] leading-relaxed">
@@ -81,11 +92,54 @@ export function SyncCard() {
               {lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString('uk-UA')}` : ''}
             </span>
           </p>
-          <Button className="mt-2.5" variant="ghost" size="sm" onClick={() => void signOut()}>
-            <LogOut className="size-4" /> Вийти з акаунта
-          </Button>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+              <LogOut className="size-4" /> Вийти з акаунта
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-danger"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="size-4" /> Видалити акаунт
+            </Button>
+          </div>
         </>
       )}
+
+      <Dialog open={confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Видалити акаунт і всі дані?</DialogTitle>
+            <DialogDescription>
+              Прогрес, картки, зошит і налаштування будуть стерті з сервера назавжди — і з усіх
+              пристроїв, бо копії ніде більше немає. Скасувати це не вийде. Якщо хочеш лише забрати
+              дані, спочатку натисни «Експортувати» нижче.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="surface" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+              Скасувати
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true)
+                try {
+                  await deleteAccount()
+                  setConfirmDelete(false)
+                } finally {
+                  setDeleting(false)
+                }
+              }}
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : null} Видалити назавжди
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {status === 'error' && (
         <>
