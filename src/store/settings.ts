@@ -22,6 +22,53 @@ type SettingsState = {
   applyTheme: () => void
 }
 
+/**
+ * The preferences that belong to the learner rather than to this machine.
+ *
+ * All of them except the voice. A voiceURI names a voice installed on one
+ * device — "com.apple.voice.compact.fr-FR.Thomas" exists on a Mac and nowhere
+ * else — so carrying it to a phone would select a voice that is not there and
+ * silently override a perfectly good local choice. Everything else is a
+ * decision about how the learner wants to study, and should follow them.
+ */
+export type SyncedSettings = Omit<SettingsState, 'set' | 'applyTheme' | 'voiceURI'>
+
+const SYNCED_KEYS = [
+  'theme',
+  'rate',
+  'autoSpeak',
+  'dailyGoal',
+  'soundEffects',
+  'showIpa',
+  'strictAccents',
+] as const
+
+export function syncedSettings(): SyncedSettings {
+  const s = useSettings.getState()
+  return Object.fromEntries(SYNCED_KEYS.map((k) => [k, s[k]])) as SyncedSettings
+}
+
+/** Returns true when anything actually changed, so callers can avoid a write loop. */
+export function applySyncedSettings(incoming: unknown): boolean {
+  if (!incoming || typeof incoming !== 'object') return false
+  const current = useSettings.getState()
+  const patch: Partial<SettingsState> = {}
+
+  for (const key of SYNCED_KEYS) {
+    const value = (incoming as Record<string, unknown>)[key]
+    if (value === undefined || value === current[key]) continue
+    // Trust the shape only as far as it matches what is already there; a
+    // malformed document must not be able to set rate to a string.
+    if (typeof value !== typeof current[key]) continue
+    ;(patch as Record<string, unknown>)[key] = value
+  }
+
+  if (!Object.keys(patch).length) return false
+  useSettings.setState(patch)
+  useSettings.getState().applyTheme()
+  return true
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set, get) => ({
@@ -40,10 +87,15 @@ export const useSettings = create<SettingsState>()(
       },
 
       applyTheme: () => {
+        // Settings can now arrive from the account, so this runs wherever that
+        // lands — including where there is no document to paint.
+        if (typeof document === 'undefined') return
         const { theme } = get()
         const dark =
           theme === 'dark' ||
-          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          (theme === 'system' &&
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.toggle('dark', dark)
       },
     }),

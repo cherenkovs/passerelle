@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { loadFirebase, rememberSignedIn, wasSignedIn } from './firebase'
 import { mergeProfileLists, mergeProfiles } from './merge'
 import { LEARNER_VERSION, normalizeProfile, useLearner, type Profile } from '@/store/learner'
+import { applySyncedSettings, syncedSettings, useSettings } from '@/store/settings'
 
 /**
  * Sync across devices, through the learner's Google account.
@@ -51,6 +52,7 @@ const PUSH_DEBOUNCE_MS = 2500
 
 let stopSnapshot: (() => void) | null = null
 let stopStore: (() => void) | null = null
+let stopSettings: (() => void) | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 let applying = false
 
@@ -77,6 +79,10 @@ async function push() {
     useSync.setState({ status: 'syncing' })
     await fb.firestore.setDoc(ref, {
       profiles: profilesOf(),
+      // Theme, speed, daily goal and the rest: decisions about how this person
+      // wants to study, so they travel with the account. The chosen voice does
+      // not — see syncedSettings.
+      settings: syncedSettings(),
       version: LEARNER_VERSION,
       updatedAt: fb.firestore.serverTimestamp(),
     })
@@ -95,6 +101,16 @@ function schedulePush() {
   if (applying) return
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
+}
+
+/** Preferences are last-write-wins: there is nothing to merge about a theme. */
+function applySettingsFromRemote(incoming: unknown) {
+  applying = true
+  try {
+    applySyncedSettings(incoming)
+  } finally {
+    applying = false
+  }
 }
 
 /** Fold whatever the server has into the local store, keeping both sides' work. */
@@ -132,6 +148,7 @@ async function startSyncing() {
       // restart the push cycle for nothing.
       if (snap.metadata.hasPendingWrites) return
       applyRemote(snap.data()?.profiles)
+      applySettingsFromRemote(snap.data()?.settings)
       // Whatever the account holds has now arrived, including nothing at all.
       useSync.setState({
         status: 'synced',
@@ -145,6 +162,9 @@ async function startSyncing() {
 
   stopStore?.()
   stopStore = useLearner.subscribe(schedulePush)
+
+  stopSettings?.()
+  stopSettings = useSettings.subscribe(schedulePush)
 
   // Push once on connect so a device that studied offline hands over its work
   // even if nothing changes afterwards.
@@ -279,7 +299,8 @@ export async function signOut(): Promise<void> {
   if (fb.authInstance.currentUser) await push()
   stopSnapshot?.()
   stopStore?.()
-  stopSnapshot = stopStore = null
+  stopSettings?.()
+  stopSnapshot = stopStore = stopSettings = null
   await fb.auth.signOut(fb.authInstance)
   rememberSignedIn(false)
   useSync.setState({
