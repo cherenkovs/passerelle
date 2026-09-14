@@ -81,7 +81,12 @@ export function Onboarding() {
    */
   /** Shared by the button and by the redirect coming back. */
   const landAfterSignIn = async () => {
+    // Deliberately not caught here. If the account cannot be read we must not
+    // continue to the name step: that step ends in createProfile, so guessing
+    // "probably a new account" is how a duplicate gets made. The caller turns
+    // this into a visible error and leaves the learner on the sign-in screen.
     const remote = await fetchRemoteProfiles()
+
     const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
     if (profiles.length) useLearner.setState({ profiles, activeId: profiles[0].id })
     await attachAfterSignIn()
@@ -101,6 +106,11 @@ export function Onboarding() {
       .then(async (ok) => {
         if (!ok) return
         await landAfterSignIn()
+      })
+      .catch((e: unknown) => {
+        // Same rule as the button path: an unreadable account stops here
+        // rather than continuing into the step that creates a profile.
+        setSignInError(e instanceof Error ? e.message : 'Спробуй ще раз')
       })
       .finally(() => setSigningIn(false))
   }, [])
@@ -126,6 +136,14 @@ export function Onboarding() {
   const existing = useLearner((s) => s.profiles)
 
   const finish = (to = '/') => {
+    // Last line of defence against a second name appearing on its own. Setup
+    // should already be unreachable for someone who has a profile, but this is
+    // the only place one is ever created, so the rule is enforced here too:
+    // extra names come from "Додати ім’я", never from signing in.
+    if (!isAdding && existing.length) {
+      navigate(to, { replace: true })
+      return
+    }
     createProfile(name, courseId, gender)
     navigate(to, { replace: true })
   }

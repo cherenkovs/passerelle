@@ -34,12 +34,21 @@ export function SignInPill() {
 
   const enter = async () => {
     if (!(await signIn())) return
-    const remote = await fetchRemoteProfiles()
-    const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
-    if (profiles.length) useLearner.setState({ profiles, activeId: profiles[0].id })
-    await attachAfterSignIn()
-    // A brand-new account still has to finish setup, even from here.
-    if (go === 'setup') navigate('/onboarding')
+    try {
+      const remote = await fetchRemoteProfiles()
+      const { profiles, go } = routeAfterSignIn(useLearner.getState().profiles, remote)
+      if (profiles.length) useLearner.setState({ profiles, activeId: profiles[0].id })
+      await attachAfterSignIn()
+      // A brand-new account still has to finish setup, even from here.
+      if (go === 'setup') navigate('/onboarding')
+    } catch (e) {
+      // Never fall through to setup on an unreadable account — that is how a
+      // second name gets created for someone who already has one.
+      useSync.setState({
+        status: 'error',
+        error: e instanceof Error ? e.message : 'Не вдалося прочитати акаунт',
+      })
+    }
   }
 
   return (

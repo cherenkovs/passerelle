@@ -201,18 +201,24 @@ export function routeAfterSignIn(
  * This is what makes a second device work the way anyone would expect: sign in
  * on a phone and the course is simply there, rather than asking again for a
  * name and a level that were settled on the laptop weeks ago.
+ *
+ * Throws rather than returning nothing when the account cannot be read. An
+ * empty list means the account really is empty, and callers act on that by
+ * creating a profile — so a failure must never be able to impersonate one.
  */
 export async function fetchRemoteProfiles(): Promise<Profile[]> {
   const target = await userDoc()
-  if (!target) return []
-  try {
-    const snap = await target.fb.firestore.getDoc(target.ref)
-    const raw = snap.data()?.profiles
-    if (!Array.isArray(raw)) return []
-    return raw.map(normalizeProfile).filter((p): p is Profile => p !== null)
-  } catch {
-    return []
-  }
+  if (!target) throw new Error('Не вдалося прочитати акаунт: немає входу')
+
+  // From the server, not the cache. A browser opening this app for the first
+  // time has an empty cache, and letting that answer the question turns "I
+  // cannot see your account yet" into "your account is empty" — which sends
+  // the learner to setup, which ends in createProfile, which is how a new name
+  // appeared in every new browser.
+  const snap = await target.fb.firestore.getDocFromServer(target.ref)
+  const raw = snap.data()?.profiles
+  if (!Array.isArray(raw)) return []
+  return raw.map(normalizeProfile).filter((p): p is Profile => p !== null)
 }
 
 const REDIRECT_FLAG = 'passerelle:sync-redirect'
