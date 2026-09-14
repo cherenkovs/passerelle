@@ -44,6 +44,31 @@ describe('advice matches the system', () => {
       if (g.href) expect(g.href).toMatch(/^https:\/\//)
     }
   })
+
+  it('writes every step in all three system languages', () => {
+    // The steps quote menu items, so a learner on an English or French system
+    // needs the words that are actually on their screen. Missing one would
+    // render as blank rather than fall back.
+    for (const p of ['macos', 'ios', 'windows', 'android', 'linux', 'unknown'] as const) {
+      const g = voiceGuide(p)
+      for (const step of g.steps) {
+        for (const lang of ['uk', 'en', 'fr'] as const) {
+          expect(step[lang]?.trim()).toBeTruthy()
+        }
+      }
+      for (const field of [g.note, g.hrefLabel]) {
+        if (!field) continue
+        for (const lang of ['uk', 'en', 'fr'] as const) expect(field[lang]?.trim()).toBeTruthy()
+      }
+    }
+  })
+
+  it('uses the menu names each system really shows', () => {
+    const mac = voiceGuide('macos').steps[0]
+    expect(mac.en).toContain('Spoken Content')
+    expect(mac.fr).toContain('Contenu énoncé')
+    expect(voiceGuide('windows').steps[0].en).toContain('Language & region')
+  })
 })
 
 describe('checking what is already installed', () => {

@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { installedRecommended, voiceGuide } from '@/lib/voice-guide'
+import { GUIDE_LANGS, installedRecommended, voiceGuide, type GuideLang } from '@/lib/voice-guide'
 
 /**
  * Whether this machine has a French voice worth learning from, and what to do
@@ -22,6 +22,14 @@ import { installedRecommended, voiceGuide } from '@/lib/voice-guide'
  */
 export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
   const [open, setOpen] = useState(false)
+  /**
+   * Which language the *system* menus are in, not the app.
+   *
+   * These steps quote menu items, and a learner on an English or French Mac
+   * will not find «Вимовний контент» anywhere on their screen. The app stays
+   * Ukrainian; only the path through their settings changes.
+   */
+  const [lang, setLang] = useState<GuideLang>('uk')
   const guide = voiceGuide()
   const have = installedRecommended(voices, guide)
   const ok = have.length > 0
@@ -67,20 +75,39 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
             </DialogDescription>
           </DialogHeader>
 
-          <ol className="text-fg mt-1 space-y-2 text-[13.5px] leading-snug">
+          <div className="border-line bg-surface-2 mt-1 flex items-center gap-1 rounded-xl border p-1">
+            <span className="text-fg-subtle px-2 text-[11px]">Мова системи:</span>
+            {GUIDE_LANGS.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => setLang(l.id)}
+                className={
+                  'rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors ' +
+                  (lang === l.id
+                    ? 'bg-primary text-primary-fg'
+                    : 'text-fg-muted hover:text-fg hover:bg-surface-3')
+                }
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+
+          <ol className="text-fg mt-3 space-y-2 text-[13.5px] leading-snug">
             {guide.steps.map((step, i) => (
               <li key={i} className="flex gap-2.5">
                 <span className="bg-surface-3 text-fg-subtle grid size-5 shrink-0 place-items-center rounded-md font-mono text-[11px]">
                   {i + 1}
                 </span>
-                <span className="text-pretty">{step}</span>
+                <span className="text-pretty">{step[lang]}</span>
               </li>
             ))}
           </ol>
 
           {guide.note && (
             <p className="text-fg-muted mt-3 text-[12.5px] leading-snug text-pretty">
-              {guide.note}
+              {guide.note[lang]}
             </p>
           )}
 
@@ -92,7 +119,8 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
                 rel="noreferrer noopener"
                 className="text-primary inline-flex items-center gap-1.5 text-[13px] underline underline-offset-4"
               >
-                {guide.hrefLabel ?? 'Офіційна інструкція'} <ExternalLink className="size-3.5" />
+                {guide.hrefLabel?.[lang] ?? 'Офіційна інструкція'}{' '}
+                <ExternalLink className="size-3.5" />
               </a>
             ) : (
               <span />
