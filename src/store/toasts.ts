@@ -71,9 +71,8 @@ export function toast(t: Omit<Toast, 'id'>): string {
  */
 export function toastOnce(key: string, t: Omit<Toast, 'id' | 'key'>): void {
   const { toasts, dismiss, push } = useToasts.getState()
-  // Matched on the key, not the wording: the same event can be phrased
-  // differently — "Прогрес збережено" and "Налаштування збережено" are both
-  // one save — and matching on text would stack them.
+  // Matched on the key, not the wording, so the text is free to change
+  // without quietly turning one repeating event into two stacking ones.
   const existing = toasts.find((x) => x.key === key)
   if (existing) dismiss(existing.id)
   push({ ...t, key })
