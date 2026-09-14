@@ -1,4 +1,13 @@
-import { Check, ExternalLink, Info } from 'lucide-react'
+import {
+  Accessibility,
+  Check,
+  Download,
+  ExternalLink,
+  Globe,
+  Info,
+  MessageSquareText,
+  Settings,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,7 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { GUIDE_LANGS, installedRecommended, voiceGuide, type GuideLang } from '@/lib/voice-guide'
+import {
+  GUIDE_LANGS,
+  installedRecommended,
+  voiceGuide,
+  type GuideLang,
+  type StepIcon,
+} from '@/lib/voice-guide'
 
 /**
  * Whether this machine has a French voice worth learning from, and what to do
@@ -20,6 +35,23 @@ import { GUIDE_LANGS, installedRecommended, voiceGuide, type GuideLang } from '@
  * anything, so it names the voices worth having on the system in front of the
  * learner, says which are already there, and gives the steps.
  */
+/**
+ * The control each step points at, drawn beside it.
+ *
+ * Menu names are the hard part of following instructions in a system whose
+ * language you half-read; the shape of the button is not. The ⓘ next to
+ * "System voice" is recognisable at a glance even when the words around it are
+ * not.
+ */
+const STEP_ICONS: Record<StepIcon, typeof Info> = {
+  settings: Settings,
+  accessibility: Accessibility,
+  speech: MessageSquareText,
+  info: Info,
+  download: Download,
+  globe: Globe,
+}
+
 export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
   const [open, setOpen] = useState(false)
   /**
@@ -97,14 +129,22 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
           </div>
 
           <ol className="text-fg mt-3 space-y-2 text-[13.5px] leading-snug">
-            {guide.steps.map((step, i) => (
-              <li key={i} className="flex gap-2.5">
-                <span className="bg-surface-3 text-fg-subtle grid size-5 shrink-0 place-items-center rounded-md font-mono text-[11px]">
-                  {i + 1}
-                </span>
-                <span className="text-pretty">{step[lang]}</span>
-              </li>
-            ))}
+            {guide.steps.map((step, i) => {
+              const Icon = step.icon ? STEP_ICONS[step.icon] : null
+              return (
+                <li key={i} className="flex gap-2.5">
+                  <span className="bg-surface-3 text-fg-subtle grid size-5 shrink-0 place-items-center rounded-md font-mono text-[11px]">
+                    {i + 1}
+                  </span>
+                  <span className="text-pretty">
+                    {Icon && (
+                      <Icon className="text-fg-subtle mr-1 inline size-3.5 translate-y-[-1px]" />
+                    )}
+                    {step[lang]}
+                  </span>
+                </li>
+              )
+            })}
           </ol>
 
           {guide.note && (
@@ -116,7 +156,7 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
           <div className="mt-4 flex items-center justify-between gap-3">
             {guide.href ? (
               <a
-                href={guide.href}
+                href={guide.href[lang]}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="text-primary inline-flex items-center gap-1.5 text-[13px] underline underline-offset-4"

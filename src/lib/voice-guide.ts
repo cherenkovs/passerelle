@@ -39,11 +39,23 @@ export function detectPlatform(ua = typeof navigator === 'undefined' ? '' : navi
   return 'unknown' as Platform
 }
 
+/** The control a step is pointing at, drawn beside it so it can be recognised. */
+export type StepIcon = 'settings' | 'accessibility' | 'speech' | 'info' | 'download' | 'globe'
+
+export type Step = Localized & { icon?: StepIcon }
+
 export type VoiceGuide = {
   /** Voices worth having here, best first, matched as lowercase substrings. */
   recommended: string[]
-  steps: Localized[]
-  href?: string
+  steps: Step[]
+  /**
+   * The help page, in each language.
+   *
+   * One link in one language is the wrong thing to hand someone: the page has
+   * to match the system they are reading their own menus in, or the words will
+   * not line up with the screenshots.
+   */
+  href?: Localized
   hrefLabel?: Localized
   note?: Localized
 }
@@ -75,27 +87,35 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        uk: 'Меню Apple → Системні параметри → «Доступність» на бічній панелі',
-        en: 'Apple menu → System Settings → Accessibility in the sidebar',
-        fr: 'Menu Pomme → Réglages Système → Accessibilité dans la barre latérale',
+        icon: 'settings',
+        uk: 'Меню Apple  → «Системні параметри» → «Доступність» на бічній панелі (можливо, доведеться прокрутити вниз)',
+        en: 'Apple menu  → System Settings → Accessibility in the sidebar (you may need to scroll down)',
+        fr: 'Menu Pomme  → Réglages Système → Accessibilité dans la barre latérale (il faudra peut-être faire défiler)',
       },
       {
-        uk: '«Читання і мовлення» (у старіших macOS — «Вимовний контент»)',
-        en: 'Read & Speak (called Spoken Content on older macOS)',
-        fr: '« Lire et énoncer » (« Contenu énoncé » sur les anciens macOS)',
+        icon: 'speech',
+        uk: 'Клацни «Читання і мовлення» (у старіших macOS — «Вимовний контент»)',
+        en: 'Click Read & Speak (called Spoken Content on older macOS)',
+        fr: 'Clique sur « Lire et énoncer » (« Contenu énoncé » sur les anciens macOS)',
       },
       {
-        uk: 'Системний голос → спливне меню → «Керування голосами»',
-        en: 'System voice → the pop-up menu → Manage Voices',
-        fr: 'Voix du système → le menu local → « Gérer les voix »',
+        icon: 'info',
+        uk: 'Біля «Основний голос» клацни кнопку «Досьє» ⓘ',
+        en: 'Next to “System voice”, click the Info button ⓘ',
+        fr: 'En regard de « Voix système », clique sur le bouton d’informations ⓘ',
       },
       {
-        uk: 'Французька (Франція) → постав галочки на Aurélie та Audrey, дочекайся завантаження',
-        en: 'French (France) → tick Aurélie and Audrey, wait for the download',
-        fr: 'Français (France) → coche Aurélie et Audrey, attends le téléchargement',
+        icon: 'download',
+        uk: 'Français (France) → клацни Aurélie чи Audrey і завантаж; тоді перезапусти браузер',
+        en: 'French (France) → click Aurélie or Audrey and download it, then restart the browser',
+        fr: 'Français (France) → clique sur Aurélie ou Audrey et télécharge, puis redémarre le navigateur',
       },
     ],
-    href: 'https://support.apple.com/guide/mac-help/change-the-voice-your-mac-uses-mh27448/mac',
+    href: {
+      uk: 'https://support.apple.com/uk-ua/guide/mac-help/mchlp2290/mac',
+      en: 'https://support.apple.com/en-gb/guide/mac-help/mchlp2290/mac',
+      fr: 'https://support.apple.com/fr-fr/guide/mac-help/mchlp2290/mac',
+    },
     hrefLabel: APPLE_LABEL,
     note: join(APPLE_NOTE, RESTART_NOTE),
   },
@@ -103,22 +123,29 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        uk: 'Параметри → Доступність → «Читання і мовлення» (раніше «Вимовний контент»)',
+        icon: 'settings',
+        uk: 'Параметри → «Доступність» → «Читання і мовлення» (раніше «Вимовний контент»)',
         en: 'Settings → Accessibility → Read & Speak (formerly Spoken Content)',
         fr: 'Réglages → Accessibilité → « Lire et énoncer » (autrefois « Contenu énoncé »)',
       },
       {
-        uk: 'Голоси → Французька',
+        icon: 'speech',
+        uk: '«Голоси» → «Французька»',
         en: 'Voices → French',
-        fr: 'Voix → Français',
+        fr: '« Voix » → « Français »',
       },
       {
+        icon: 'download',
         uk: 'Завантаж Aurélie або Audrey',
         en: 'Download Aurélie or Audrey',
         fr: 'Télécharge Aurélie ou Audrey',
       },
     ],
-    href: 'https://support.apple.com/guide/iphone/change-voice-settings-iph9a8b7f2c1/ios',
+    href: {
+      uk: 'https://support.apple.com/uk-ua/guide/iphone/iph96b214f0/ios',
+      en: 'https://support.apple.com/en-gb/guide/iphone/iph96b214f0/ios',
+      fr: 'https://support.apple.com/fr-fr/guide/iphone/iph96b214f0/ios',
+    },
     hrefLabel: APPLE_LABEL,
     note: APPLE_NOTE,
   },
@@ -126,31 +153,39 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['denise', 'hortense', 'julie', 'paul'],
     steps: [
       {
+        icon: 'settings',
         uk: 'Параметри → Час і мова → Мова та регіон',
         en: 'Settings → Time & language → Language & region',
         fr: 'Paramètres → Heure et langue → Langue et région',
       },
       {
+        icon: 'globe',
         uk: 'Додати мову → «Французька (Франція)»',
         en: 'Add a language → “French (France)”',
         fr: 'Ajouter une langue → « Français (France) »',
       },
       {
+        icon: 'speech',
         uk: 'У параметрах мови постав «Мовлення»',
         en: 'In Language options, tick “Speech”',
         fr: 'Dans Options linguistiques, coche « Voix »',
       },
       {
+        icon: 'download',
         uk: 'Перезапусти браузер',
         en: 'Restart the browser',
         fr: 'Redémarre le navigateur',
       },
     ],
-    href: 'https://support.microsoft.com/en-us/windows/appendix-a-supported-languages-and-voices-4486e345-7730-53da-fcfe-55cc64300f01',
+    href: {
+      uk: 'https://support.microsoft.com/uk-ua/windows/manage-the-language-and-keyboard-input-layout-settings-in-windows-219f28b0-9881-cd4c-75ca-dba919c52321',
+      en: 'https://support.microsoft.com/en-us/windows/manage-the-language-and-keyboard-input-layout-settings-in-windows-219f28b0-9881-cd4c-75ca-dba919c52321',
+      fr: 'https://support.microsoft.com/fr-fr/windows/manage-the-language-and-keyboard-input-layout-settings-in-windows-219f28b0-9881-cd4c-75ca-dba919c52321',
+    },
     hrefLabel: {
-      uk: 'Список голосів Microsoft',
-      en: 'Microsoft’s voice list',
-      fr: 'Liste des voix Microsoft',
+      uk: 'Інструкція Microsoft',
+      en: 'Microsoft’s instructions',
+      fr: 'Instructions de Microsoft',
     },
     note: {
       uk: `Microsoft Denise — найприродніша з французьких. ${RESTART_NOTE.uk}`,
@@ -162,22 +197,29 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['google français', 'google french', 'français'],
     steps: [
       {
+        icon: 'settings',
         uk: 'Налаштування → Спеціальні можливості → Синтез мовлення',
         en: 'Settings → Accessibility → Text-to-speech output',
         fr: 'Paramètres → Accessibilité → Synthèse vocale',
       },
       {
+        icon: 'speech',
         uk: 'Google Синтезатор мовлення → Встановити мовні дані',
         en: 'Google Text-to-speech → Install voice data',
         fr: 'Synthèse vocale Google → Installer les données vocales',
       },
       {
+        icon: 'download',
         uk: 'Завантаж «Français (France)»',
         en: 'Download “Français (France)”',
         fr: 'Télécharge « Français (France) »',
       },
     ],
-    href: 'https://support.google.com/accessibility/android/answer/6006983',
+    href: {
+      uk: 'https://support.google.com/accessibility/android/answer/6006983?hl=uk',
+      en: 'https://support.google.com/accessibility/android/answer/6006983?hl=en',
+      fr: 'https://support.google.com/accessibility/android/answer/6006983?hl=fr',
+    },
     hrefLabel: {
       uk: 'Інструкція Google',
       en: 'Google’s instructions',

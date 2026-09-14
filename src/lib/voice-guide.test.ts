@@ -41,7 +41,12 @@ describe('advice matches the system', () => {
     for (const p of ['macos', 'ios', 'windows', 'android', 'linux', 'unknown'] as const) {
       const g = voiceGuide(p)
       expect(g.steps.length).toBeGreaterThan(0)
-      if (g.href) expect(g.href).toMatch(/^https:\/\//)
+      // The help page has to match the language the steps are being read in.
+      if (g.href) {
+        for (const lang of ['uk', 'en', 'fr'] as const) {
+          expect(g.href[lang]).toMatch(/^https:\/\//)
+        }
+      }
     }
   })
 
@@ -71,8 +76,15 @@ describe('advice matches the system', () => {
     expect(mac[1].en).toContain('Read & Speak')
     expect(mac[1].fr).toContain('Lire et énoncer')
     expect(mac[1].uk).toContain('Читання і мовлення')
-    expect(mac[2].uk).toContain('Керування голосами')
-    expect(mac[2].fr).toContain('Gérer les voix')
+
+    // The voices are behind the Info button next to the voice pop-up, which is
+    // what Apple's own article says. An earlier version sent people to "Manage
+    // Voices", which is not how this screen works.
+    expect(mac[2].en).toContain('System voice')
+    expect(mac[2].en).toContain('Info button')
+    expect(mac[2].fr).toContain('Voix système')
+    expect(mac[2].uk).toContain('Основний голос')
+
     expect(voiceGuide('windows').steps[0].en).toContain('Language & region')
   })
 
@@ -110,5 +122,17 @@ describe('checking what is already installed', () => {
 
   it('does not call Thomas missing — he is on the list, just not first', () => {
     expect(missingRecommended(voices('Thomas'), voiceGuide('macos'))).toBe(false)
+  })
+})
+
+describe('every step points at something the learner can see', () => {
+  it('carries an icon for the control it names', () => {
+    // Menu names are the hard part of following instructions in a system whose
+    // language you half-read; the shape of a button is not.
+    for (const p of ['macos', 'ios', 'windows', 'android'] as const) {
+      for (const step of voiceGuide(p).steps) {
+        expect(step.icon).toBeTruthy()
+      }
+    }
   })
 })
