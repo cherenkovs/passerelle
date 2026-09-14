@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Check, Info, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { toastLife, useToasts, type Toast } from '@/store/toasts'
@@ -11,7 +11,7 @@ const TONE = {
   info: { icon: Info, ring: 'border-line', accent: 'text-fg-muted' },
 } as const
 
-function ToastCard({ toast, depth }: { toast: Toast; depth: number }) {
+function ToastCard({ toast, depth, paused }: { toast: Toast; depth: number; paused: boolean }) {
   const dismiss = useToasts((s) => s.dismiss)
   const { icon: Icon, ring, accent } = TONE[toast.tone]
 
@@ -19,12 +19,20 @@ function ToastCard({ toast, depth }: { toast: Toast; depth: number }) {
     // An error waits for the learner rather than timing out: it is the one
     // kind worth reading in full, and the one they may want to act on.
     if (toast.tone === 'error') return
+    // Paused while the pointer is over the stack — someone reading a message
+    // should not have it taken away mid-sentence — and while the tab is in the
+    // background, or every toast would expire unseen and the learner would come
+    // back to no record of what happened.
+    if (paused) return
     const t = setTimeout(() => dismiss(toast.id), toastLife(depth))
     return () => clearTimeout(t)
-  }, [toast.id, toast.tone, depth, dismiss])
+  }, [toast.id, toast.tone, depth, paused, dismiss])
 
   return (
     <motion.li
+      // A success is announced when the reader gets to it; a failure
+      // interrupts, because it is the only kind with something to act on.
+      role={toast.tone === 'error' ? 'alert' : 'status'}
       // layout is what makes the stack settle downwards when one leaves,
       // rather than the rest jumping into the gap.
       layout
@@ -85,16 +93,44 @@ function ToastCard({ toast, depth }: { toast: Toast; depth: number }) {
  */
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts)
+  const clear = useToasts((s) => s.clear)
+  const [hovering, setHovering] = useState(false)
+  const [hidden, setHidden] = useState(false)
+
+  useEffect(() => {
+    const onVisibility = () => setHidden(document.visibilityState === 'hidden')
+    onVisibility()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (!toasts.length) return
+    // Escape clears them, the way it closes anything else that is covering the
+    // page. Without it the only way past a failure is finding its small ×.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clear()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toasts.length, clear])
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <ul className="pointer-events-none fixed right-4 bottom-20 z-[100] flex flex-col items-end gap-2 sm:right-6 sm:bottom-6">
+    <ol
+      aria-live="polite"
+      aria-label="Сповіщення"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      className="pointer-events-none fixed right-4 bottom-20 z-[100] flex flex-col items-end gap-2 sm:right-6 sm:bottom-6"
+    >
       <AnimatePresence initial={false} mode="popLayout">
         {toasts.map((t) => (
-          <ToastCard key={t.id} toast={t} depth={toasts.length} />
+          <ToastCard key={t.id} toast={t} depth={toasts.length} paused={hovering || hidden} />
         ))}
       </AnimatePresence>
-    </ul>,
+    </ol>,
     document.body,
   )
 }

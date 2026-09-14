@@ -63,8 +63,50 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null
  * Both stores feed the same write, and reporting a changed voice as "прогрес
  * збережено" describes something the learner did not do.
  */
-type PushReason = 'progress' | 'settings' | 'both'
+type PushReason = 'progress' | 'profile' | 'settings' | 'mixed'
 let pendingReason: PushReason | null = null
+
+/**
+ * The fields that say who the learner is, rather than what they have done.
+ *
+ * They sit on the profile next to the XP and the flashcards, which is why
+ * changing an avatar announced "прогрес збережено": the message was chosen by
+ * which store had been written, and one store holds both.
+ */
+const IDENTITY_FIELDS = ['name', 'emoji', 'courseId', 'gender'] as const
+
+/** Which kind of change this was — identity, work done, or some of each. */
+export function classifyProfileChange(before: Profile[], after: Profile[]): PushReason | null {
+  if (before === after) return null
+
+  const byId = new Map(before.map((p) => [p.id, p]))
+  let identity = before.length !== after.length
+  let progress = false
+
+  for (const next of after) {
+    const prev = byId.get(next.id)
+    if (!prev) {
+      identity = true
+      continue
+    }
+    for (const key of Object.keys(next) as (keyof Profile)[]) {
+      // Reference first, because an immutable update leaves untouched fields
+      // alone and that check is free. Value second, because a profile rebuilt
+      // wholesale — by a merge, or by normalising an import — has every nested
+      // object new without anything having actually changed, and would
+      // otherwise report all of it as edited.
+      if (prev[key] === next[key]) continue
+      if (JSON.stringify(prev[key]) === JSON.stringify(next[key])) continue
+      if ((IDENTITY_FIELDS as readonly string[]).includes(key)) identity = true
+      else progress = true
+    }
+  }
+
+  if (identity && progress) return 'mixed'
+  if (identity) return 'profile'
+  if (progress) return 'progress'
+  return null
+}
 let applying = false
 
 function profilesOf(): Profile[] {
@@ -158,7 +200,7 @@ async function push() {
 
 function schedulePush(reason: PushReason) {
   if (applying) return
-  pendingReason = !pendingReason || pendingReason === reason ? reason : 'both'
+  pendingReason = !pendingReason || pendingReason === reason ? reason : 'mixed'
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
 }
@@ -180,8 +222,9 @@ function schedulePush(reason: PushReason) {
  */
 const SAVED_COPY: Record<PushReason, string> = {
   progress: 'Прогрес збережено',
+  profile: 'Профіль збережено',
   settings: 'Налаштування збережено',
-  both: 'Збережено',
+  mixed: 'Збережено',
 }
 
 /** Preferences are last-write-wins: there is nothing to merge about a theme. */
@@ -258,7 +301,11 @@ async function startSyncing() {
 
       // Now — and not before — it is safe to send anything back.
       stopStore?.()
-      stopStore = useLearner.subscribe(() => schedulePush('progress'))
+      stopStore = useLearner.subscribe((next, prev) => {
+        const reason = classifyProfileChange(prev.profiles, next.profiles)
+        // Switching the active profile changes neither, and has nothing to save.
+        if (reason) schedulePush(reason)
+      })
       stopSettings?.()
       stopSettings = useSettings.subscribe(() => schedulePush('settings'))
 
