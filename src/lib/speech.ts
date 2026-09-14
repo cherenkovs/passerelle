@@ -14,24 +14,61 @@ export function supportsTTS() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window
 }
 
+/** Notified whenever the system's voice list changes. */
+const voiceListeners = new Set<() => void>()
+let watchingVoices = false
+
+function readVoices(): boolean {
+  const v = window.speechSynthesis.getVoices()
+  if (!v.length) return false
+  cachedVoices = v
+  voiceListeners.forEach((fn) => fn())
+  return true
+}
+
+/**
+ * Keep listening after the first answer.
+ *
+ * This used to unsubscribe as soon as voices appeared, which made the list a
+ * snapshot of the moment the app started. Install a voice in system settings —
+ * the exact thing the app now tells people to do when it has nothing good to
+ * read with — and it would not show up until the whole page was reloaded.
+ */
+function watchVoices() {
+  if (watchingVoices || !supportsTTS()) return
+  watchingVoices = true
+  window.speechSynthesis.addEventListener('voiceschanged', () => readVoices())
+}
+
+/** Re-read the system list now, for a learner who has just installed a voice. */
+export function refreshVoices(): SpeechSynthesisVoice[] {
+  if (supportsTTS()) readVoices()
+  return cachedVoices
+}
+
+export function onVoicesChanged(cb: () => void): () => void {
+  voiceListeners.add(cb)
+  return () => {
+    voiceListeners.delete(cb)
+  }
+}
+
 export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
   if (!supportsTTS()) return Promise.resolve([])
+  watchVoices()
   if (voicesReady) return voicesReady
 
   voicesReady = new Promise((resolve) => {
-    const read = () => {
-      const v = window.speechSynthesis.getVoices()
-      if (v.length) {
-        cachedVoices = v
-        resolve(v)
-        return true
-      }
-      return false
+    if (readVoices()) {
+      resolve(cachedVoices)
+      return
     }
-    if (read()) return
     // Chrome populates voices asynchronously.
     const onChange = () => {
-      if (read()) window.speechSynthesis.removeEventListener('voiceschanged', onChange)
+      if (readVoices()) {
+        window.speechSynthesis.removeEventListener('voiceschanged', onChange)
+        resolve(cachedVoices)
+      }
     }
     window.speechSynthesis.addEventListener('voiceschanged', onChange)
     // Safety net — some browsers never fire the event.
@@ -174,11 +211,15 @@ const brokenVoices = new Set<string>()
  */
 export function frenchVoicesRanked(): SpeechSynthesisVoice[] {
   const usable = frenchVoices().filter((v) => !brokenVoices.has(v.voiceURI))
-  return usable.sort((a, b) => {
-    // A comedy voice is never the right answer for pronunciation practice, so
-    // this outranks even the variety of French: better a real Québécois voice
-    // than a cartoon Parisian one.
-    if (isNoveltyVoice(a) !== isNoveltyVoice(b)) return isNoveltyVoice(a) ? 1 : -1
+
+  // The novelty voices are not offered at all. They are not a worse choice, they
+  // are the wrong kind of thing — a learner cannot judge their own pronunciation
+  // against a cartoon. The only reason to keep any is that a machine with
+  // nothing else should still make a sound; Settings says how to fix that.
+  const real = usable.filter((v) => !isNoveltyVoice(v))
+  const pool = real.length ? real : usable
+
+  return pool.sort((a, b) => {
     if (isFrance(a) !== isFrance(b)) return isFrance(a) ? -1 : 1
     if (isHighQuality(a) !== isHighQuality(b)) return isHighQuality(a) ? -1 : 1
     if (a.localService !== b.localService) return a.localService ? -1 : 1

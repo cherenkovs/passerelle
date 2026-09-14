@@ -38,6 +38,11 @@ function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
     speaking: false,
     addEventListener: (_: string, fn: () => void) => listeners.push(fn),
     removeEventListener: () => {},
+    /** Test hook: the system's voice list changing under the app. */
+    __replace: (next: FakeVoice[]) => {
+      available = next
+      listeners.forEach((fn) => fn())
+    },
     /** Test hook: let Chrome's late voice population happen. */
     __populate: () => {
       available = voices
@@ -519,5 +524,52 @@ describe('how a voice is named in the list', () => {
     expect(voiceLabel({ name: 'Aurélie (Enhanced)' } as SpeechSynthesisVoice)).toBe(
       'Aurélie (Enhanced)',
     )
+  })
+})
+
+describe('voices installed while the app is running', () => {
+  it('shows a voice added after the list first loaded', async () => {
+    const synth = install([voice('Thomas', 'fr-FR')])
+    const { loadVoices, frenchVoicesRanked } = await import('./speech')
+    await loadVoices()
+    expect(frenchVoicesRanked().map((v) => v.name)).toEqual(['Thomas'])
+
+    // The learner follows the advice in Settings and installs Aurélie. This
+    // used to need a full reload: the listener was removed after the first
+    // successful read, so the list was a snapshot of app startup.
+    synth.__replace([voice('Thomas', 'fr-FR'), voice('Aurélie', 'fr-FR')])
+    expect(frenchVoicesRanked().map((v) => v.name)).toEqual(['Aurélie', 'Thomas'])
+  })
+
+  it('tells subscribers, so an open settings page updates itself', async () => {
+    const synth = install([voice('Thomas', 'fr-FR')])
+    const { loadVoices, onVoicesChanged } = await import('./speech')
+    await loadVoices()
+
+    let told = 0
+    const stop = onVoicesChanged(() => told++)
+    synth.__replace([voice('Thomas', 'fr-FR'), voice('Audrey', 'fr-FR')])
+    expect(told).toBe(1)
+
+    stop()
+    synth.__replace([voice('Thomas', 'fr-FR')])
+    expect(told).toBe(1)
+  })
+})
+
+describe('the novelty voices are not offered', () => {
+  it('leaves them out of the list entirely', async () => {
+    install([voice('Thomas', 'fr-FR'), voice('Flo (French (France))', 'fr-FR')])
+    const { loadVoices, frenchVoicesRanked } = await import('./speech')
+    await loadVoices()
+    expect(frenchVoicesRanked().map((v) => v.name)).toEqual(['Thomas'])
+  })
+
+  it('keeps them only when there is nothing else to speak with', async () => {
+    // Silence would be worse; Settings explains how to install a real voice.
+    install([voice('Flo (French (France))', 'fr-FR'), voice('Grandpa (French (France))', 'fr-FR')])
+    const { loadVoices, frenchVoicesRanked } = await import('./speech')
+    await loadVoices()
+    expect(frenchVoicesRanked()).toHaveLength(2)
   })
 })

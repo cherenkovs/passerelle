@@ -8,6 +8,7 @@ import {
   TriangleAlert,
   Upload,
   UserPlus,
+  RefreshCw,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -39,6 +40,8 @@ import {
   frenchVoicesRanked,
   isNoveltyVoice,
   loadVoices,
+  onVoicesChanged,
+  refreshVoices,
   slowRate,
   supportsSTT,
   supportsTTS,
@@ -71,7 +74,11 @@ export function SettingsPage() {
   useEffect(() => {
     // Same order the automatic choice uses, so the top of the list is the one
     // the app would have picked.
-    void loadVoices().then(() => setVoices(frenchVoicesRanked()))
+    const sync = () => setVoices(frenchVoicesRanked())
+    void loadVoices().then(sync)
+    // And again whenever the system's list changes, so a voice installed while
+    // this page is open appears without a reload.
+    return onVoicesChanged(sync)
   }, [])
 
   if (!profile) return null
@@ -231,7 +238,7 @@ export function SettingsPage() {
                 description={
                   voices.length
                     ? needsBetterVoice
-                      ? 'У системі немає жодного природного французького голосу — лишилися тільки жартівливі. Додай Aurélie або Audrey: Системні параметри → Доступність → Вимовний контент → Системний голос → Керувати голосами.'
+                      ? 'У системі немає жодного природного французького голосу. Додай Aurélie або Audrey: Системні параметри → Доступність → Вимовний контент → Системний голос → Керувати голосами. Якщо щойно встановив — натисни ⟳.'
                       : `Доступно ${voices.length}, найкращі — зверху. «Франція» — вимова, якої вчить курс.`
                     : 'Голоси ще завантажуються або відсутні в системі.'
                 }
@@ -261,6 +268,21 @@ export function SettingsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="surface"
+                    size="icon"
+                    // Chrome does not always announce a voice installed while it
+                    // is running, so offer to look again rather than asking for
+                    // a restart.
+                    onClick={() => {
+                      refreshVoices()
+                      setVoices(frenchVoicesRanked())
+                    }}
+                    aria-label="Оновити список голосів"
+                    title="Оновити список голосів"
+                  >
+                    <RefreshCw />
+                  </Button>
                   <Button
                     variant="surface"
                     size="icon"
