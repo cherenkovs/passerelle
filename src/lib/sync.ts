@@ -76,9 +76,6 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null
  * Both stores feed the same write, and reporting a changed voice as "прогрес
  * збережено" describes something the learner did not do.
  */
-/** Something the learner did is waiting to go up, so the save is worth saying. */
-let pendingSave = false
-
 /**
  * Did anything about the profiles actually change?
  *
@@ -174,16 +171,12 @@ async function push() {
     // exercise, and a lesson would otherwise leave a column of identical notes.
     // Nothing pending means this is the push on connect, which has nothing to
     // announce: the learner did not just do anything.
-    if (pendingSave) {
-      toastUpsert('save', { title: 'Збережено', tone: 'ok' })
-      pendingSave = false
-    }
     // Now it is in the account, the browser copy can go.
     dropLegacyLocalData()
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не вдалося синхронізувати'
     useSync.setState({ status: 'error', error: message })
-    // Same card again: the one that said "Зберігаю…" is the one that failed.
+    // The same card that said "Збережено" a moment ago, corrected in place.
     toastUpsert('save', {
       title: 'Не збережено',
       description: message,
@@ -195,11 +188,12 @@ async function push() {
 
 function schedulePush() {
   if (applying) return
-  pendingSave = true
-  // Immediately, not when the write starts: the whole complaint about the
-  // delay is the gap between doing something and seeing any sign of it. This
-  // card then becomes "Збережено" in place rather than being replaced.
-  toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
+  // Said at the moment of the change rather than when the write lands, so it
+  // answers the action instead of trailing a second behind it. Optimistic, and
+  // deliberately so: if the write fails, this same card becomes "Не збережено"
+  // with the reason, which is a correction within about a second and better
+  // than a second of silence on every save.
+  toastUpsert('save', { title: 'Збережено', tone: 'ok' })
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
 }

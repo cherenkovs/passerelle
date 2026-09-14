@@ -28,22 +28,22 @@ describe('the stack', () => {
 
 describe('one event, told as it progresses', () => {
   it('updates the card in place instead of replacing it', () => {
-    // Replacing it would restart the entrance animation, so a save going
-    // "Зберігаю…" then "Збережено" would look like two things rather than one
-    // thing finishing.
-    toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
-    const first = useToasts.getState().toasts[0]
+    // Replacing it would restart the entrance animation, so a save being
+    // corrected to a failure would look like two events rather than one being
+    // put right.
     toastUpsert('save', { title: 'Збережено', tone: 'ok' })
+    const first = useToasts.getState().toasts[0]
+    toastUpsert('save', { title: 'Не збережено', tone: 'error' })
     const after = useToasts.getState().toasts
 
     expect(after).toHaveLength(1)
     expect(after[0].id).toBe(first.id)
-    expect(after[0].title).toBe('Збережено')
-    expect(after[0].tone).toBe('ok')
+    expect(after[0].title).toBe('Не збережено')
+    expect(after[0].tone).toBe('error')
   })
 
   it('carries a failure on the same card', () => {
-    toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
+    toastUpsert('save', { title: 'Збережено', tone: 'ok' })
     toastUpsert('save', {
       title: 'Не збережено',
       description: 'мережа недоступна',
