@@ -3,7 +3,7 @@ import { loadFirebase } from './firebase'
 import { mergeProfileLists, mergeProfiles } from './merge'
 import { LEARNER_VERSION, normalizeProfile, useLearner, type Profile } from '@/store/learner'
 import { applySyncedSettings, syncedSettings, useSettings } from '@/store/settings'
-import { toast, toastOnce } from '@/store/toasts'
+import { toast, toastUpsert } from '@/store/toasts'
 
 /**
  * Sync across devices, through the learner's Google account.
@@ -49,8 +49,21 @@ export const useSync = create<SyncState>(() => ({
   restoring: true,
 }))
 
-/** Long enough that a lesson's XP ticks become one write, short enough to feel live. */
-const PUSH_DEBOUNCE_MS = 2500
+/**
+ * How long to wait before writing.
+ *
+ * It was 2500, chosen to fold a lesson's XP ticks into one write — and that is
+ * most of why the confirmation felt slow, because the toast waits for the
+ * write and the write waited for this. Two and a half seconds after a click is
+ * long enough to wonder whether anything happened at all.
+ *
+ * 600 still coalesces a burst — several updates from finishing one exercise
+ * land together — while leaving the confirmation close enough to the action to
+ * read as caused by it. The cost is more writes: a lesson of seven exercises
+ * becomes roughly seven instead of two or three, against a free-tier allowance
+ * of twenty thousand a day. It was never the writes that needed protecting.
+ */
+const PUSH_DEBOUNCE_MS = 600
 
 let stopSnapshot: (() => void) | null = null
 let stopStore: (() => void) | null = null
@@ -162,7 +175,7 @@ async function push() {
     // Nothing pending means this is the push on connect, which has nothing to
     // announce: the learner did not just do anything.
     if (pendingSave) {
-      toastOnce('save', { title: 'Збережено', tone: 'ok' })
+      toastUpsert('save', { title: 'Збережено', tone: 'ok' })
       pendingSave = false
     }
     // Now it is in the account, the browser copy can go.
@@ -170,7 +183,8 @@ async function push() {
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не вдалося синхронізувати'
     useSync.setState({ status: 'error', error: message })
-    toast({
+    // Same card again: the one that said "Зберігаю…" is the one that failed.
+    toastUpsert('save', {
       title: 'Не збережено',
       description: message,
       tone: 'error',
@@ -182,6 +196,10 @@ async function push() {
 function schedulePush() {
   if (applying) return
   pendingSave = true
+  // Immediately, not when the write starts: the whole complaint about the
+  // delay is the gap between doing something and seeing any sign of it. This
+  // card then becomes "Збережено" in place rather than being replaced.
+  toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
 }

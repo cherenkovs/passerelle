@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { toast, toastLife, toastOnce, useToasts } from './toasts'
+import { toast, toastLife, toastUpsert, useToasts } from './toasts'
 
 beforeEach(() => useToasts.getState().clear())
 
@@ -26,38 +26,43 @@ describe('the stack', () => {
   })
 })
 
-describe('repeat events', () => {
-  it('replaces the previous one rather than stacking duplicates', () => {
-    // Progress saves after every exercise; a lesson would otherwise produce a
-    // column of identical notes.
-    toastOnce('Збережено', { title: 'Збережено', tone: 'ok' })
-    toastOnce('Збережено', { title: 'Збережено', tone: 'ok' })
-    toastOnce('Збережено', { title: 'Збережено', tone: 'ok' })
-    expect(useToasts.getState().toasts).toHaveLength(1)
+describe('one event, told as it progresses', () => {
+  it('updates the card in place instead of replacing it', () => {
+    // Replacing it would restart the entrance animation, so a save going
+    // "Зберігаю…" then "Збережено" would look like two things rather than one
+    // thing finishing.
+    toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
+    const first = useToasts.getState().toasts[0]
+    toastUpsert('save', { title: 'Збережено', tone: 'ok' })
+    const after = useToasts.getState().toasts
+
+    expect(after).toHaveLength(1)
+    expect(after[0].id).toBe(first.id)
+    expect(after[0].title).toBe('Збережено')
+    expect(after[0].tone).toBe('ok')
   })
 
-  it('does not swallow a different message', () => {
-    toastOnce('Збережено', { title: 'Збережено', tone: 'ok' })
-    toastOnce('Не збережено', { title: 'Не збережено', tone: 'error' })
-    expect(useToasts.getState().toasts.map((t) => t.title)).toEqual(['Збережено', 'Не збережено'])
-  })
-})
-
-describe('repeats of one event', () => {
-  it('groups by key, not by the words', () => {
-    // The key is what makes a repeating event one line rather than a column,
-    // and it holds even if the wording is changed later.
-    toastOnce('save', { title: 'Збережено', tone: 'ok' })
-    toastOnce('save', { title: 'Збережено', tone: 'ok' })
-    toastOnce('save', { title: 'Все збережено', tone: 'ok' })
+  it('carries a failure on the same card', () => {
+    toastUpsert('save', { title: 'Зберігаю…', tone: 'info' })
+    toastUpsert('save', {
+      title: 'Не збережено',
+      description: 'мережа недоступна',
+      tone: 'error',
+    })
     const list = useToasts.getState().toasts
     expect(list).toHaveLength(1)
-    expect(list[0].title).toBe('Все збережено')
+    expect(list[0].tone).toBe('error')
+    expect(list[0].description).toBe('мережа недоступна')
   })
 
   it('keeps unrelated events apart', () => {
-    toastOnce('save', { title: 'Збережено', tone: 'ok' })
-    toastOnce('signin', { title: 'Вхід виконано', tone: 'ok' })
+    toastUpsert('save', { title: 'Збережено', tone: 'ok' })
+    toastUpsert('signin', { title: 'Вхід виконано', tone: 'ok' })
     expect(useToasts.getState().toasts).toHaveLength(2)
+  })
+
+  it('does not stack repeats of the same event', () => {
+    for (let i = 0; i < 5; i++) toastUpsert('save', { title: 'Збережено', tone: 'ok' })
+    expect(useToasts.getState().toasts).toHaveLength(1)
   })
 })

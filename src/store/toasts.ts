@@ -63,17 +63,24 @@ export function toast(t: Omit<Toast, 'id'>): string {
 }
 
 /**
- * Report the same thing only once while it is still on screen.
+ * Show one toast per event, updating it in place as the event progresses.
  *
- * Progress saves after every exercise, so a lesson would otherwise produce a
- * column of identical "Збережено" notes. This keeps the most recent one and
- * lets its timer start again.
+ * Replacing the card would restart its entrance animation, so a save that goes
+ * "Зберігаю…" then "Збережено" would appear to be two things happening rather
+ * than one thing finishing. Keeping the id keeps the card, and only the words
+ * change under it.
+ *
+ * It also stops repeats stacking: progress saves after every exercise, and a
+ * lesson would otherwise leave a column of identical notes.
  */
-export function toastOnce(key: string, t: Omit<Toast, 'id' | 'key'>): void {
-  const { toasts, dismiss, push } = useToasts.getState()
-  // Matched on the key, not the wording, so the text is free to change
-  // without quietly turning one repeating event into two stacking ones.
+export function toastUpsert(key: string, t: Omit<Toast, 'id' | 'key'>): void {
+  const { toasts, push } = useToasts.getState()
   const existing = toasts.find((x) => x.key === key)
-  if (existing) dismiss(existing.id)
-  push({ ...t, key })
+  if (!existing) {
+    push({ ...t, key })
+    return
+  }
+  useToasts.setState((s) => ({
+    toasts: s.toasts.map((x) => (x.id === existing.id ? { ...x, ...t, id: x.id, key } : x)),
+  }))
 }
