@@ -47,8 +47,35 @@ export function frenchVoices(): SpeechSynthesisVoice[] {
   return cachedVoices.filter((v) => v.lang.toLowerCase().startsWith('fr'))
 }
 
-/** Nice-sounding voices, checked only among voices of the right variety. */
-const PREFERRED_NAMES = ['thomas', 'audrey', 'marie', 'aurélie', 'aurelie', 'amélie', 'amelie']
+/**
+ * Voices to reach for first, checked only among voices of the right variety.
+ *
+ * Ordered female-first. The list used to open with Thomas, so the very first
+ * thing a learner heard — the example on the onboarding gender question — was
+ * a man's voice regardless of anything else.
+ *
+ * Alice leads because she was asked for by name. On most systems Alice is an
+ * Italian voice and will simply never match here, which is the intent: the
+ * variety check runs first, so she is only ever chosen on a device that ships
+ * a French one. A course about French vowels read by an Italian synthesiser
+ * would teach the wrong sounds.
+ *
+ * Audrey, Aurélie, Amélie and Marie are the classic French female voices;
+ * Flo, Sandy and Shelley are the newer system ones, kept last because they are
+ * more stylised.
+ */
+const PREFERRED_NAMES = [
+  'alice',
+  'audrey',
+  'aurélie',
+  'aurelie',
+  'amélie',
+  'amelie',
+  'marie',
+  'flo',
+  'sandy',
+  'shelley',
+]
 
 function isFrance(v: SpeechSynthesisVoice) {
   return v.lang.toLowerCase().replace('_', '-') === 'fr-fr'

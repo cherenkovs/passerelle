@@ -162,11 +162,36 @@ describe('pickDefaultFrenchVoice', () => {
     expect(pickDefaultFrenchVoice()?.name).toBe('Jacques')
   })
 
-  it('still prefers a good name among fr-FR voices', async () => {
-    install([voice('Eddy (French (France))', 'fr-FR'), voice('Thomas', 'fr-FR')])
+  it('picks a French female voice over a male one', async () => {
+    // The onboarding gender question speaks its own example, so the default
+    // voice is the first thing anyone hears. It used to be Thomas.
+    install([voice('Thomas', 'fr-FR'), voice('Aurélie', 'fr-FR')])
     const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
     await loadVoices()
-    expect(pickDefaultFrenchVoice()?.name).toBe('Thomas')
+    expect(pickDefaultFrenchVoice()?.name).toBe('Aurélie')
+  })
+
+  it('falls back to the newer system voices when no classic one is installed', async () => {
+    install([voice('Eddy (French (France))', 'fr-FR'), voice('Shelley (French (France))', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Shelley (French (France))')
+  })
+
+  it('never takes an Italian Alice for a French course', async () => {
+    // Alice leads the preference list by request, but variety is checked
+    // first: an Italian synthesiser reading French teaches the wrong vowels.
+    install([voice('Alice', 'it-IT'), voice('Aurélie', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Aurélie')
+  })
+
+  it('does take a French Alice where one exists', async () => {
+    install([voice('Alice', 'fr-FR'), voice('Aurélie', 'fr-FR')])
+    const { loadVoices, pickDefaultFrenchVoice } = await import('./speech')
+    await loadVoices()
+    expect(pickDefaultFrenchVoice()?.name).toBe('Alice')
   })
 
   it('prefers a local voice over a network one — network means latency', async () => {
