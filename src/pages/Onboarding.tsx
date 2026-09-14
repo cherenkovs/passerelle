@@ -21,8 +21,6 @@ import { useSpeak } from '@/components/common/speak'
 import {
   attachAfterSignIn,
   fetchRemoteProfiles,
-  finishRedirect,
-  redirectPending,
   routeAfterSignIn,
   signIn,
   useSync,
@@ -98,22 +96,14 @@ export function Onboarding() {
     // Fetch the SDK while the learner reads this screen, so the popup can open
     // inside their click instead of after a download.
     warmFirebase()
-
-    // And if we are the far side of a redirect, carry on where it left off.
-    if (!redirectPending()) return
-    setSigningIn(true)
-    void finishRedirect()
-      .then(async (ok) => {
-        if (!ok) return
-        await landAfterSignIn()
-      })
-      .catch((e: unknown) => {
-        // Same rule as the button path: an unreadable account stops here
-        // rather than continuing into the step that creates a profile.
-        setSignInError(e instanceof Error ? e.message : 'Спробуй ще раз')
-      })
-      .finally(() => setSigningIn(false))
   }, [])
+
+  // A sign-in that went the redirect route completes during startup, not here,
+  // so this screen finds out the same way any other would: a profile appears.
+  const existingProfiles = useLearner((s) => s.profiles.length)
+  useEffect(() => {
+    if (!isAdding && existingProfiles > 0) navigate('/', { replace: true })
+  }, [isAdding, existingProfiles, navigate])
 
   const enterWithGoogle = async () => {
     setSigningIn(true)

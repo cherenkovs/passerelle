@@ -1,11 +1,10 @@
 /**
  * Firebase, loaded only when it is actually needed.
  *
- * The SDK is around 200 KB — comparable to the rest of the app — and most of
- * what Passerelle does works with no account at all. So nothing here is in the
- * main bundle: it is fetched on the first sign-in, and on later visits only for
- * someone who has signed in before (`wasSignedIn`), which is why that flag
- * lives in localStorage rather than being read from Firebase itself.
+ * The SDK is around 200 KB — comparable to the rest of the app — so it stays
+ * out of the main bundle and is fetched when the app starts talking to the
+ * account. Whether there is a session to resume is a question for Firebase
+ * Auth, which knows: the app keeps no flag of its own to answer it.
  *
  * The config values are identifiers, not secrets. They are meant to ship in
  * client code and are safe in a public repository — access is controlled by the
@@ -24,25 +23,6 @@ const config = {
 
 // Deliberately no getAnalytics(). The app tells the learner it does not track
 // them, and that has to stay true.
-
-const SIGNED_IN_FLAG = 'passerelle:sync'
-
-export function wasSignedIn(): boolean {
-  try {
-    return localStorage.getItem(SIGNED_IN_FLAG) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function rememberSignedIn(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(SIGNED_IN_FLAG, '1')
-    else localStorage.removeItem(SIGNED_IN_FLAG)
-  } catch {
-    /* private mode */
-  }
-}
 
 export type FirebaseBits = Awaited<ReturnType<typeof loadFirebase>>
 

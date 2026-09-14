@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { loadFirebase, rememberSignedIn, wasSignedIn } from './firebase'
+import { loadFirebase } from './firebase'
 import { mergeProfileLists, mergeProfiles } from './merge'
 import { LEARNER_VERSION, normalizeProfile, useLearner, type Profile } from '@/store/learner'
 import { applySyncedSettings, syncedSettings, useSettings } from '@/store/settings'
@@ -42,9 +42,10 @@ export const useSync = create<SyncState>(() => ({
   email: null,
   lastSyncedAt: null,
   error: null,
-  // Set straight away for a browser that has signed in before, so the very
-  // first render already knows to wait rather than redirect.
-  restoring: wasSignedIn(),
+  // Always true until Firebase Auth says one way or the other. The app keeps
+  // no note of whether this browser has signed in before — that would be state
+  // of its own, and the answer belongs to the session, not to a flag.
+  restoring: true,
 }))
 
 /** Long enough that a lesson's XP ticks become one write, short enough to feel live. */
@@ -75,6 +76,15 @@ async function push() {
   const target = await userDoc()
   if (!target) return
   const { fb, ref } = target
+
+  // A write is a whole-document replace, so an empty list does not mean
+  // "nothing changed" — it means "delete everything this account has". The app
+  // never legitimately reaches zero profiles: the last one cannot be deleted,
+  // and signing out stops these subscriptions before clearing the store.
+  // Reaching here with none is therefore a bug somewhere upstream, and the
+  // right response is to write nothing rather than to erase the account.
+  if (!profilesOf().length) return
+
   try {
     useSync.setState({ status: 'syncing' })
     await fb.firestore.setDoc(ref, {
@@ -135,10 +145,25 @@ function applyRemote(remote: unknown) {
   }
 }
 
+/**
+ * Read first, then write. Never the other way round.
+ *
+ * This used to push the local store the moment it connected, before the first
+ * snapshot had said what the account held. On a browser that keeps nothing —
+ * which is now every browser — the local store at that moment is empty, so the
+ * first act of signing in was to overwrite the account with nothing. The
+ * learner was then sent to setup, made a fresh profile, and ended up with one
+ * per browser, all under the same email.
+ *
+ * So writing is only armed once the account has answered: the store
+ * subscriptions and the first push both wait for that snapshot.
+ */
 async function startSyncing() {
   const target = await userDoc()
   if (!target) return
   const { fb, ref } = target
+
+  let accountHasAnswered = false
 
   stopSnapshot?.()
   stopSnapshot = fb.firestore.onSnapshot(
@@ -147,28 +172,31 @@ async function startSyncing() {
       // Our own write echoing back. Applying it would be harmless but would
       // restart the push cycle for nothing.
       if (snap.metadata.hasPendingWrites) return
+
       applyRemote(snap.data()?.profiles)
       applySettingsFromRemote(snap.data()?.settings)
-      // Whatever the account holds has now arrived, including nothing at all.
       useSync.setState({
         status: 'synced',
         lastSyncedAt: Date.now(),
         error: null,
         restoring: false,
       })
+
+      if (accountHasAnswered) return
+      accountHasAnswered = true
+
+      // Now — and not before — it is safe to send anything back.
+      stopStore?.()
+      stopStore = useLearner.subscribe(schedulePush)
+      stopSettings?.()
+      stopSettings = useSettings.subscribe(schedulePush)
+
+      // One push on connect, so work done offline reaches the account even if
+      // nothing changes afterwards.
+      void push()
     },
     (e) => useSync.setState({ status: 'error', error: e.message, restoring: false }),
   )
-
-  stopStore?.()
-  stopStore = useLearner.subscribe(schedulePush)
-
-  stopSettings?.()
-  stopSettings = useSettings.subscribe(schedulePush)
-
-  // Push once on connect so a device that studied offline hands over its work
-  // even if nothing changes afterwards.
-  await push()
 }
 
 /**
@@ -241,8 +269,6 @@ export async function fetchRemoteProfiles(): Promise<Profile[]> {
   return raw.map(normalizeProfile).filter((p): p is Profile => p !== null)
 }
 
-const REDIRECT_FLAG = 'passerelle:sync-redirect'
-
 /**
  * Resolves true only when there is a signed-in user at the end of it.
  *
@@ -268,18 +294,14 @@ export async function signIn(): Promise<boolean> {
     } catch (inner) {
       const code = inner instanceof Error ? inner.message : String(inner)
       if (code.includes('popup-blocked') || code.includes('operation-not-supported')) {
-        try {
-          localStorage.setItem(REDIRECT_FLAG, '1')
-        } catch {
-          /* private mode */
-        }
-        // Navigates away; the result is picked up by finishRedirect() on return.
+        // Navigates away. On the way back getRedirectResult picks it up during
+        // initSync — no note left behind to say one is in flight, because
+        // Firebase can be asked directly.
         await fb.auth.signInWithRedirect(fb.authInstance, provider)
         return false
       }
       throw inner
     }
-    rememberSignedIn(true)
     return true
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не вдалося увійти'
@@ -302,7 +324,6 @@ export async function signOut(): Promise<void> {
   stopSettings?.()
   stopSnapshot = stopStore = stopSettings = null
   await fb.auth.signOut(fb.authInstance)
-  rememberSignedIn(false)
   useSync.setState({
     status: 'off',
     email: null,
@@ -361,63 +382,30 @@ export function warmFirebase(): void {
   void loadFirebase()
 }
 
-export function redirectPending(): boolean {
-  try {
-    return localStorage.getItem(REDIRECT_FLAG) === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
- * Pick up a sign-in that went the redirect route.
+ * Ask Firebase who is signed in, and follow that for the life of the app.
  *
- * Returns true when this load is the far side of one and it worked, so the
- * caller can route the learner the same way a popup sign-in would have.
+ * There is no local flag to consult first: the session is Firebase Auth's to
+ * know, and a note of our own would only be a second copy to go stale. Any
+ * sign-in that went the redirect route is collected here too — again by
+ * asking, rather than by having left a marker behind before navigating away.
  */
-export async function finishRedirect(): Promise<boolean> {
-  if (!redirectPending()) return false
+export async function initSync(): Promise<void> {
+  const fb = await loadFirebase()
+
   try {
-    localStorage.removeItem(REDIRECT_FLAG)
-  } catch {
-    /* private mode */
-  }
-  useSync.setState({ status: 'connecting' })
-  try {
-    const fb = await loadFirebase()
-    const result = await fb.auth.getRedirectResult(fb.authInstance)
-    if (!result?.user) {
-      useSync.setState({ status: 'off' })
-      return false
-    }
-    rememberSignedIn(true)
-    return true
+    await fb.auth.getRedirectResult(fb.authInstance)
   } catch (e) {
     useSync.setState({
       status: 'error',
-      error: e instanceof Error ? e.message : 'Не вдалося увійти',
+      error: e instanceof Error ? e.message : 'Не вдалося завершити вхід',
     })
-    return false
   }
-}
 
-/**
- * Watch the signed-in account for the life of the app.
- *
- * Only loads Firebase when this browser has signed in before, so a learner who
- * never uses an account never pays for the SDK.
- */
-export async function initSync(): Promise<void> {
-  if (!wasSignedIn()) {
-    useSync.setState({ restoring: false })
-    return
-  }
-  const fb = await loadFirebase()
   fb.auth.onAuthStateChanged(fb.authInstance, (user) => {
     if (!user) {
-      // Signed out elsewhere, or the session lapsed. Stop waiting.
-      rememberSignedIn(false)
       useSync.setState({ status: 'off', email: null, restoring: false })
+      useLearner.setState({ profiles: [], activeId: null })
       return
     }
     useSync.setState({ status: 'syncing', email: user.email })
