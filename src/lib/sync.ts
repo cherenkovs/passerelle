@@ -63,49 +63,30 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null
  * Both stores feed the same write, and reporting a changed voice as "прогрес
  * збережено" describes something the learner did not do.
  */
-type PushReason = 'progress' | 'profile' | 'settings' | 'mixed'
-let pendingReason: PushReason | null = null
+/** Something the learner did is waiting to go up, so the save is worth saying. */
+let pendingSave = false
 
 /**
- * The fields that say who the learner is, rather than what they have done.
+ * Did anything about the profiles actually change?
  *
- * They sit on the profile next to the XP and the flashcards, which is why
- * changing an avatar announced "прогрес збережено": the message was chosen by
- * which store had been written, and one store holds both.
+ * Only to decide whether there is a save worth reporting — switching which
+ * profile is active writes nothing new and should say nothing. The reference
+ * check is free and right for an immutable update; the value check catches a
+ * profile rebuilt wholesale by a merge or an import, where every nested object
+ * is new with nothing actually edited.
  */
-const IDENTITY_FIELDS = ['name', 'emoji', 'courseId', 'gender'] as const
-
-/** Which kind of change this was — identity, work done, or some of each. */
-export function classifyProfileChange(before: Profile[], after: Profile[]): PushReason | null {
-  if (before === after) return null
+export function profilesChanged(before: Profile[], after: Profile[]): boolean {
+  if (before === after) return false
+  if (before.length !== after.length) return true
 
   const byId = new Map(before.map((p) => [p.id, p]))
-  let identity = before.length !== after.length
-  let progress = false
-
-  for (const next of after) {
+  return after.some((next) => {
     const prev = byId.get(next.id)
-    if (!prev) {
-      identity = true
-      continue
-    }
-    for (const key of Object.keys(next) as (keyof Profile)[]) {
-      // Reference first, because an immutable update leaves untouched fields
-      // alone and that check is free. Value second, because a profile rebuilt
-      // wholesale — by a merge, or by normalising an import — has every nested
-      // object new without anything having actually changed, and would
-      // otherwise report all of it as edited.
-      if (prev[key] === next[key]) continue
-      if (JSON.stringify(prev[key]) === JSON.stringify(next[key])) continue
-      if ((IDENTITY_FIELDS as readonly string[]).includes(key)) identity = true
-      else progress = true
-    }
-  }
-
-  if (identity && progress) return 'mixed'
-  if (identity) return 'profile'
-  if (progress) return 'progress'
-  return null
+    if (!prev) return true
+    return (Object.keys(next) as (keyof Profile)[]).some(
+      (key) => prev[key] !== next[key] && JSON.stringify(prev[key]) !== JSON.stringify(next[key]),
+    )
+  })
 }
 let applying = false
 
@@ -180,9 +161,9 @@ async function push() {
     // exercise, and a lesson would otherwise leave a column of identical notes.
     // Nothing pending means this is the push on connect, which has nothing to
     // announce: the learner did not just do anything.
-    if (pendingReason) {
-      toastOnce('save', { title: SAVED_COPY[pendingReason], tone: 'ok' })
-      pendingReason = null
+    if (pendingSave) {
+      toastOnce('save', { title: 'Збережено', tone: 'ok' })
+      pendingSave = false
     }
     // Now it is in the account, the browser copy can go.
     dropLegacyLocalData()
@@ -198,33 +179,11 @@ async function push() {
   }
 }
 
-function schedulePush(reason: PushReason) {
+function schedulePush() {
   if (applying) return
-  pendingReason = !pendingReason || pendingReason === reason ? reason : 'mixed'
+  pendingSave = true
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => void push(), PUSH_DEBOUNCE_MS)
-}
-
-/**
- * Wording for a save.
- *
- * Title only, no description. A description earns its place by carrying
- * something the learner does not already have — a filename, a count, the
- * reason a thing failed — and "діятимуть на всіх пристроях" is none of those
- * after the first time they read it. It is also the kind of line that makes a
- * routine confirmation feel like an announcement.
- *
- * Not per-field either. "Голос збережено", "Аватар збережено" and the rest
- * would mean a string for every setting, all of them telling the learner what
- * they just did. Which of the two stores was written is the one distinction
- * worth drawing, because a lesson saving itself and a setting being changed
- * are genuinely different events.
- */
-const SAVED_COPY: Record<PushReason, string> = {
-  progress: 'Прогрес збережено',
-  profile: 'Профіль збережено',
-  settings: 'Налаштування збережено',
-  mixed: 'Збережено',
 }
 
 /** Preferences are last-write-wins: there is nothing to merge about a theme. */
@@ -302,12 +261,11 @@ async function startSyncing() {
       // Now — and not before — it is safe to send anything back.
       stopStore?.()
       stopStore = useLearner.subscribe((next, prev) => {
-        const reason = classifyProfileChange(prev.profiles, next.profiles)
-        // Switching the active profile changes neither, and has nothing to save.
-        if (reason) schedulePush(reason)
+        // Switching which profile is active writes nothing new.
+        if (profilesChanged(prev.profiles, next.profiles)) schedulePush()
       })
       stopSettings?.()
-      stopSettings = useSettings.subscribe(() => schedulePush('settings'))
+      stopSettings = useSettings.subscribe(() => schedulePush())
 
       // One push on connect, so work done offline reaches the account even if
       // nothing changes afterwards.

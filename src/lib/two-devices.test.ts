@@ -265,49 +265,36 @@ describe('what is safe to hand to the database', () => {
   })
 })
 
-describe('naming the change that was saved', () => {
-  it('calls an avatar change a profile change, not progress', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    // The report: changing the avatar said "Прогрес збережено". The avatar
-    // lives on the profile beside the XP, so keying the message off which
-    // store had been written could never tell the two apart.
-    const before = [profile({ emoji: '🥐' })]
-    expect(classifyProfileChange(before, [profile({ emoji: '🦊' })])).toBe('profile')
+describe('deciding whether a save is worth reporting', () => {
+  it('sees an edit to the profile', async () => {
+    const { profilesChanged } = await import('./sync')
+    // Every one of these is one message now — "Збережено" — so the only
+    // question left is whether anything happened at all.
+    expect(profilesChanged([profile({ emoji: '🥐' })], [profile({ emoji: '🦊' })])).toBe(true)
+    expect(profilesChanged([profile()], [profile({ name: 'Maryna' })])).toBe(true)
+    expect(profilesChanged([profile({ xp: 100 })], [profile({ xp: 140 })])).toBe(true)
   })
 
-  it('treats a name, a course and a gender the same way', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    const before = [profile()]
-    expect(classifyProfileChange(before, [profile({ name: 'Maryna' })])).toBe('profile')
-    expect(classifyProfileChange(before, [profile({ courseId: 'a1-a2' })])).toBe('profile')
-    expect(classifyProfileChange(before, [profile({ gender: 'f' })])).toBe('profile')
+  it('stays quiet when nothing about the profiles changed', async () => {
+    const { profilesChanged } = await import('./sync')
+    // Switching which profile is active writes nothing new, and a toast then
+    // would be reporting a save that did not happen.
+    expect(profilesChanged([profile()], [profile()])).toBe(false)
   })
 
-  it('calls work done progress', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    const before = [profile({ xp: 100 })]
-    expect(classifyProfileChange(before, [profile({ xp: 140 })])).toBe('progress')
-    expect(classifyProfileChange(before, [profile({ xp: 100, savedWords: ['w_pain'] })])).toBe(
-      'progress',
-    )
+  it('looks past a rebuilt object to whether the values differ', async () => {
+    const { profilesChanged } = await import('./sync')
+    // A merge or an import hands back every nested object new. Comparing by
+    // reference alone would call that an edit to all of it.
+    const p = profile({ xp: 100 })
+    expect(profilesChanged([p], [{ ...p, days: { ...p.days } }])).toBe(false)
   })
 
-  it('falls back to something plain when a burst carries both', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    expect(classifyProfileChange([profile()], [profile({ emoji: '🦊', xp: 40 })])).toBe('mixed')
-  })
-
-  it('says nothing when nothing about the profiles changed', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    // Switching which profile is active is not a change to save.
-    expect(classifyProfileChange([profile()], [profile()])).toBeNull()
-  })
-
-  it('counts a new or removed profile as a profile change', async () => {
-    const { classifyProfileChange } = await import('./sync')
-    expect(classifyProfileChange([], [profile()])).toBe('profile')
+  it('notices a profile appearing or going', async () => {
+    const { profilesChanged } = await import('./sync')
+    expect(profilesChanged([], [profile()])).toBe(true)
     expect(
-      classifyProfileChange([profile({ id: 'a' }), profile({ id: 'b' })], [profile({ id: 'a' })]),
-    ).toBe('profile')
+      profilesChanged([profile({ id: 'a' }), profile({ id: 'b' })], [profile({ id: 'a' })]),
+    ).toBe(true)
   })
 })
