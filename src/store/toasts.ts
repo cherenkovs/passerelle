@@ -65,10 +65,9 @@ export function toast(t: Omit<Toast, 'id'>): string {
 /**
  * Show one toast per event, updating it in place as the event progresses.
  *
- * Replacing the card would restart its entrance animation, so a save that goes
- * "Зберігаю…" then "Збережено" would appear to be two things happening rather
- * than one thing finishing. Keeping the id keeps the card, and only the words
- * change under it.
+ * Replacing the card would restart its entrance animation, so a "Збережено"
+ * corrected to "Не збережено" would read as two events rather than one being
+ * put right. Keeping the id keeps the card, and only the words change under it.
  *
  * It also stops repeats stacking: progress saves after every exercise, and a
  * lesson would otherwise leave a column of identical notes.
