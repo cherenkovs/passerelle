@@ -92,8 +92,8 @@ export function SyncCard() {
           <p className="text-danger mt-1 flex items-start gap-1.5 text-pretty">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>
-              Не синхронізується: {error}. Прогрес у цьому браузері не втрачено — він просто поки не
-              йде на інші пристрої.
+              Не синхронізується: {error}. Не закривай вкладку — прогрес цього заняття ще не
+              збережений в акаунті, а в браузері він не зберігається.
             </span>
           </p>
           <Button

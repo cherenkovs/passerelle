@@ -72,6 +72,33 @@ async function userDoc() {
   return { fb, ref: fb.firestore.doc(fb.db, 'users', uid) }
 }
 
+/**
+ * Remove every `undefined` before the data reaches Firestore.
+ *
+ * Firestore rejects the whole write if any field is undefined — not that
+ * field, the entire document — with "Unsupported field value: undefined". And
+ * a profile is full of fields that are legitimately absent: `lastStudyDay`
+ * before the first lesson, `lastReviewed` on a card never reviewed, `explain`
+ * on a mistake that carried no explanation, `note` on a word without one.
+ *
+ * Absent and undefined are the same thing in TypeScript and different things
+ * to Firestore, which is why this is needed at the boundary rather than
+ * anywhere upstream. Null is kept: it is a value the learner may have chosen,
+ * such as clearing the selected voice.
+ */
+export function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(stripUndefined) as T
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) {
+      if (v === undefined) continue
+      out[k] = stripUndefined(v)
+    }
+    return out as T
+  }
+  return value
+}
+
 async function push() {
   const target = await userDoc()
   if (!target) return
@@ -88,11 +115,11 @@ async function push() {
   try {
     useSync.setState({ status: 'syncing' })
     await fb.firestore.setDoc(ref, {
-      profiles: profilesOf(),
+      profiles: stripUndefined(profilesOf()),
       // Theme, speed, daily goal and the rest: decisions about how this person
       // wants to study, so they travel with the account. The chosen voice does
       // not — see syncedSettings.
-      settings: syncedSettings(),
+      settings: stripUndefined(syncedSettings()),
       version: LEARNER_VERSION,
       updatedAt: fb.firestore.serverTimestamp(),
     })

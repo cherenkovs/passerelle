@@ -47,6 +47,11 @@ async function init() {
   // show.
   const db = firestore.initializeFirestore(app, {
     localCache: firestore.memoryLocalCache(),
+    // Belt and braces with stripUndefined in sync.ts. That function is the
+    // explicit, tested boundary; this is the floor under it, so a write added
+    // later that forgets to go through it fails to save one field rather than
+    // rejecting the learner's whole document.
+    ignoreUndefinedProperties: true,
   })
 
   return { app, auth, firestore, authInstance: auth.getAuth(app), db }

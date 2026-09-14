@@ -204,3 +204,63 @@ describe('the merge is order-independent', () => {
     expect(mergeProfiles(a, b).xp).toBe(180)
   })
 })
+
+describe('what is safe to hand to the database', () => {
+  it('drops fields that are merely absent', async () => {
+    const { stripUndefined } = await import('./sync')
+    // Firestore rejects the whole write for one undefined field, and a profile
+    // is full of legitimately absent ones.
+    const p = profile({ lastStudyDay: undefined, xp: 0 })
+    expect('lastStudyDay' in stripUndefined(p)).toBe(false)
+  })
+
+  it('reaches inside nested records and arrays', async () => {
+    const { stripUndefined } = await import('./sync')
+    const cleaned = stripUndefined({
+      srs: { w_pain: { id: 'w_pain', reps: 1, lastReviewed: undefined } },
+      mistakes: [{ id: 'm1', explain: undefined, resolved: true }],
+    }) as Record<string, any>
+    expect('lastReviewed' in cleaned.srs.w_pain).toBe(false)
+    expect('explain' in cleaned.mistakes[0]).toBe(false)
+    expect(cleaned.mistakes[0].resolved).toBe(true)
+  })
+
+  it('keeps null, which is a value someone chose', async () => {
+    const { stripUndefined } = await import('./sync')
+    // Clearing the selected voice sets null; dropping it would silently
+    // restore whatever the account held before.
+    expect(stripUndefined({ voiceURI: null, voiceName: null })).toEqual({
+      voiceURI: null,
+      voiceName: null,
+    })
+  })
+
+  it('leaves a clean profile untouched', async () => {
+    const { stripUndefined } = await import('./sync')
+    const p = profile({ xp: 120, savedWords: ['w_pain'] })
+    expect(stripUndefined(p)).toEqual(p)
+  })
+
+  it('produces something JSON can round-trip with nothing lost', async () => {
+    const { stripUndefined } = await import('./sync')
+    const p = profile({
+      lastStudyDay: undefined,
+      srs: {
+        a: {
+          id: 'a',
+          ease: 2.5,
+          interval: 1,
+          reps: 1,
+          lapses: 0,
+          due: '2026-09-15',
+          step: 0,
+          seen: 1,
+          correct: 1,
+          lastReviewed: undefined,
+        },
+      },
+    })
+    const cleaned = stripUndefined(p)
+    expect(JSON.parse(JSON.stringify(cleaned))).toEqual(cleaned)
+  })
+})
