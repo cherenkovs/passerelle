@@ -253,12 +253,35 @@ export function slowRate(rate: number) {
 }
 
 /**
+ * Strip what a browser adds to a voice's name, leaving the voice itself.
+ *
+ * The same voice is reported differently depending on who is asking: Chrome on
+ * macOS says "Aurélie (Enhanced)", Firefox says "Aurélie", Windows prefixes
+ * "Microsoft ", and some builds append the locale. Comparing raw names across
+ * browsers therefore fails on the same machine, for the same voice.
+ */
+function baseVoiceName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^(microsoft|google|apple)\s+/i, '')
+    .replace(/\s*\((?:enhanced|premium|compact|natural|neural)\)\s*/gi, ' ')
+    .replace(/\s*[-–(].*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * The learner's chosen voice, on whatever machine is doing the reading.
  *
- * A voiceURI is local to the device it was chosen on, so the name is tried
- * next: the same voice often exists elsewhere under a different URI. When
- * neither matches — a Mac voice asked for on a phone — this returns nothing
- * and the caller falls back to the best French voice actually installed.
+ * Tried in order, because each identifier survives a different distance. The
+ * voiceURI is exact but belongs to one browser on one machine — Firefox and
+ * Chrome give the same voice different ones, which is why a choice made in one
+ * showed up as an empty box in the other. The full name crosses browsers on the
+ * same system. The base name crosses systems, where the quality suffix or a
+ * vendor prefix differs.
+ *
+ * When none matches, the voice is genuinely absent and the caller falls back to
+ * the best French voice actually installed.
  */
 export function resolveVoice(
   voiceURI?: string | null,
@@ -268,10 +291,20 @@ export function resolveVoice(
     const exact = cachedVoices.find((v) => v.voiceURI === voiceURI)
     if (exact) return exact
   }
-  if (voiceName) {
-    return cachedVoices.find((v) => v.name === voiceName)
-  }
-  return undefined
+  if (!voiceName) return undefined
+
+  const byName = cachedVoices.find((v) => v.name === voiceName)
+  if (byName) return byName
+
+  const wanted = baseVoiceName(voiceName)
+  if (!wanted) return undefined
+  const sameVoice = cachedVoices.filter((v) => baseVoiceName(v.name) === wanted)
+  if (!sameVoice.length) return undefined
+
+  // More than one build of it: take the better one, the way the ranking would.
+  return (
+    sameVoice.find((v) => /\b(enhanced|premium|natural|neural)\b/i.test(v.name)) ?? sameVoice[0]
+  )
 }
 
 export type SpeakOptions = {

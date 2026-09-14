@@ -42,6 +42,7 @@ import {
   loadVoices,
   onVoicesChanged,
   refreshVoices,
+  resolveVoice,
   slowRate,
   supportsSTT,
   supportsTTS,
@@ -93,6 +94,17 @@ export function SettingsPage() {
    * picking by name can land a different accent from the one the course
    * teaches without ever being told.
    */
+  /**
+   * A voice chosen elsewhere that this device does not have at all.
+   *
+   * Different from the cross-browser case above: there the voice is present
+   * under another id and resolves fine. Here it is genuinely absent, the app
+   * falls back to the automatic choice, and saying so beats a box that reads
+   * "Автоматично" as though that were the setting.
+   */
+  const chosenVoiceMissing =
+    Boolean(settings.voiceName) && !resolveVoice(settings.voiceURI, settings.voiceName)
+
   const frenchVariety = (lang: string) => {
     const tag = lang.toLowerCase().replace('_', '-')
     if (tag === 'fr-fr') return 'Франція'
@@ -235,7 +247,12 @@ export function SettingsPage() {
               >
                 <div className="flex items-center gap-2">
                   <Select
-                    value={settings.voiceURI ?? 'auto'}
+                    // Resolved, not the stored URI. A voiceURI identifies a
+                    // voice on the machine it was chosen on: Firefox and Chrome
+                    // give the same voice different ones, so the stored value
+                    // matched no item and the box simply looked empty — while
+                    // the voice itself was in the list and was being used.
+                    value={resolveVoice(settings.voiceURI, settings.voiceName)?.voiceURI ?? 'auto'}
                     onValueChange={(v) => {
                       // Store the name alongside the URI: the URI identifies
                       // this machine's copy, the name is what another device
@@ -283,6 +300,13 @@ export function SettingsPage() {
                   </Button>
                 </div>
               </SettingRow>
+
+              {chosenVoiceMissing && (
+                <p className="text-warning px-0 pt-1 pb-2 text-[12.5px] leading-snug text-pretty">
+                  Голос «{settings.voiceName}» не встановлено на цьому пристрої — поки що звучить
+                  автоматично обраний. Обери інший тут або встанови той самий у системі.
+                </p>
+              )}
 
               <VoiceHelp voices={voices} />
 

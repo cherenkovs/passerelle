@@ -573,3 +573,56 @@ describe('the novelty voices are not offered', () => {
     expect(frenchVoicesRanked()).toHaveLength(2)
   })
 })
+
+describe('a voice chosen in one browser, opened in another', () => {
+  it('finds it even though the browsers give it different ids', async () => {
+    // The report: chosen in Chrome, the select was empty in Firefox — while
+    // the voice was in the list and was in fact being used to speak.
+    install([voice('Aurélie (Enhanced)', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(
+      resolveVoice('urn:moz-tts:osx:com.apple.voice.aurelie', 'Aurélie (Enhanced)')?.name,
+    ).toBe('Aurélie (Enhanced)')
+  })
+
+  it('matches when the name differs by the quality suffix', async () => {
+    // Chrome says "Aurélie (Enhanced)", Firefox says "Aurélie" — same voice.
+    install([voice('Aurélie', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('chrome-uri', 'Aurélie (Enhanced)')?.name).toBe('Aurélie')
+  })
+
+  it('matches across a vendor prefix', async () => {
+    install([voice('Denise', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('some-uri', 'Microsoft Denise - French (France)')?.name).toBe('Denise')
+  })
+
+  it('honours the exact name when the device has it', async () => {
+    // Choosing "Aurélie" and being given "Aurélie (Premium)" would be the app
+    // overruling a choice it was asked to remember.
+    install([voice('Aurélie', 'fr-FR'), voice('Aurélie (Premium)', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('gone', 'Aurélie')?.name).toBe('Aurélie')
+  })
+
+  it('takes the better build only when neither name matches exactly', async () => {
+    install([voice('Aurélie (Compact)', 'fr-FR'), voice('Aurélie (Premium)', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('gone', 'Aurélie (Enhanced)')?.name).toBe('Aurélie (Premium)')
+  })
+
+  it('still gives up when the voice is genuinely not installed', async () => {
+    // Not the same as "cannot match": the caller must fall back and the UI
+    // must say so, rather than showing the box as though nothing were chosen.
+    install([voice('Thomas', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('gone', 'Aurélie')).toBeUndefined()
+  })
+})
