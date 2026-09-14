@@ -75,24 +75,24 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        uk: 'Системні параметри → Доступність → Вимовний контент',
-        en: 'System Settings → Accessibility → Spoken Content',
-        fr: 'Réglages Système → Accessibilité → Contenu énoncé',
+        uk: 'Меню Apple → Системні параметри → «Доступність» на бічній панелі',
+        en: 'Apple menu → System Settings → Accessibility in the sidebar',
+        fr: 'Menu Pomme → Réglages Système → Accessibilité dans la barre latérale',
       },
       {
-        uk: 'Системний голос → Керувати голосами…',
-        en: 'System Voice → Manage Voices…',
-        fr: 'Voix du système → Gérer les voix…',
+        uk: '«Читання і мовлення» (у старіших macOS — «Вимовний контент»)',
+        en: 'Read & Speak (called Spoken Content on older macOS)',
+        fr: '« Lire et énoncer » (« Contenu énoncé » sur les anciens macOS)',
       },
       {
-        uk: 'Знайди «Французька (Франція)» і постав галочки на Aurélie та Audrey',
-        en: 'Find “French (France)” and tick Aurélie and Audrey',
-        fr: 'Trouve « Français (France) » et coche Aurélie et Audrey',
+        uk: 'Системний голос → спливне меню → «Керування голосами»',
+        en: 'System voice → the pop-up menu → Manage Voices',
+        fr: 'Voix du système → le menu local → « Gérer les voix »',
       },
       {
-        uk: 'Дочекайся завантаження, тоді перезапусти браузер',
-        en: 'Wait for the download, then restart the browser',
-        fr: 'Attends la fin du téléchargement, puis redémarre le navigateur',
+        uk: 'Французька (Франція) → постав галочки на Aurélie та Audrey, дочекайся завантаження',
+        en: 'French (France) → tick Aurélie and Audrey, wait for the download',
+        fr: 'Français (France) → coche Aurélie et Audrey, attends le téléchargement',
       },
     ],
     href: 'https://support.apple.com/guide/mac-help/change-the-voice-your-mac-uses-mh27448/mac',
@@ -103,9 +103,9 @@ export const VOICE_GUIDES: Record<Platform, VoiceGuide> = {
     recommended: ['aurélie', 'aurelie', 'audrey', 'marie', 'thomas'],
     steps: [
       {
-        uk: 'Параметри → Доступність → Вимовний контент',
-        en: 'Settings → Accessibility → Spoken Content',
-        fr: 'Réglages → Accessibilité → Contenu énoncé',
+        uk: 'Параметри → Доступність → «Читання і мовлення» (раніше «Вимовний контент»)',
+        en: 'Settings → Accessibility → Read & Speak (formerly Spoken Content)',
+        fr: 'Réglages → Accessibilité → « Lire et énoncer » (autrefois « Contenu énoncé »)',
       },
       {
         uk: 'Голоси → Французька',

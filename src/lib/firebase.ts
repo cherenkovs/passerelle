@@ -24,8 +24,6 @@ const config = {
 // Deliberately no getAnalytics(). The app tells the learner it does not track
 // them, and that has to stay true.
 
-export type FirebaseBits = Awaited<ReturnType<typeof loadFirebase>>
-
 let pending: ReturnType<typeof init> | null = null
 
 async function init() {

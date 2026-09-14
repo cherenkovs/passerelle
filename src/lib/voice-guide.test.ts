@@ -64,10 +64,26 @@ describe('advice matches the system', () => {
   })
 
   it('uses the menu names each system really shows', () => {
-    const mac = voiceGuide('macos').steps[0]
-    expect(mac.en).toContain('Spoken Content')
-    expect(mac.fr).toContain('Contenu énoncé')
+    // Taken from Apple's own localised pages, not from memory: the pane was
+    // renamed from "Spoken Content" to "Read & Speak", and the first version
+    // of these steps sent people to a menu item that no longer exists.
+    const mac = voiceGuide('macos').steps
+    expect(mac[1].en).toContain('Read & Speak')
+    expect(mac[1].fr).toContain('Lire et énoncer')
+    expect(mac[1].uk).toContain('Читання і мовлення')
+    expect(mac[2].uk).toContain('Керування голосами')
+    expect(mac[2].fr).toContain('Gérer les voix')
     expect(voiceGuide('windows').steps[0].en).toContain('Language & region')
+  })
+
+  it('still names the old menu item, for anyone on an older system', () => {
+    // Ventura and Sonoma call it Spoken Content, and plenty of people are on
+    // them — sending them looking for a name their Mac does not use is the
+    // same failure in the other direction.
+    const mac = voiceGuide('macos').steps[1]
+    expect(mac.en).toContain('Spoken Content')
+    expect(mac.uk).toContain('Вимовний контент')
+    expect(mac.fr).toContain('Contenu énoncé')
   })
 })
 
