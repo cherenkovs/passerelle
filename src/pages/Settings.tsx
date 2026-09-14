@@ -202,7 +202,14 @@ export function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Select
                     value={settings.voiceURI ?? 'auto'}
-                    onValueChange={(v) => settings.set('voiceURI', v === 'auto' ? null : v)}
+                    onValueChange={(v) => {
+                      // Store the name alongside the URI: the URI identifies
+                      // this machine's copy, the name is what another device
+                      // can recognise.
+                      const chosen = voices.find((x) => x.voiceURI === v)
+                      settings.set('voiceURI', v === 'auto' ? null : v)
+                      settings.set('voiceName', v === 'auto' ? null : (chosen?.name ?? null))
+                    }}
                   >
                     <SelectTrigger className="w-56">
                       <SelectValue placeholder="Автоматично" />
@@ -399,7 +406,8 @@ export function SettingsPage() {
       </section>
 
       <p className="text-fg-subtle pb-6 text-center text-[12px] text-pretty">
-        Passerelle · курс французької для українців · працює офлайн після входу · без підписок і без відстеження
+        Passerelle · курс французької для українців · працює офлайн після входу · без підписок і без
+        відстеження
       </p>
 
       {/* Confirmations */}

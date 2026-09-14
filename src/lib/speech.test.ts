@@ -421,3 +421,30 @@ describe('who may stop the voice', () => {
     expect(cancels).toBe(0)
   })
 })
+
+describe('resolving the learner’s chosen voice', () => {
+  it('takes the exact voice when this device has it', async () => {
+    install([voice('Flo (French (France))', 'fr-FR'), voice('Thomas', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    expect(resolveVoice('Flo (French (France))-fr-FR', null)?.name).toBe('Flo (French (France))')
+  })
+
+  it('falls back to the name when the URI belongs to another machine', async () => {
+    install([voice('Flo (French (France))', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    // The same voice exists here, but under a URI from the Mac it was picked on.
+    expect(resolveVoice('com.apple.voice.whatever', 'Flo (French (France))')?.name).toBe(
+      'Flo (French (France))',
+    )
+  })
+
+  it('gives up rather than guessing when the voice is not installed', async () => {
+    install([voice('Thomas', 'fr-FR')])
+    const { loadVoices, resolveVoice } = await import('./speech')
+    await loadVoices()
+    // The caller then uses the best French voice actually present.
+    expect(resolveVoice('urn:absent', 'Aurélie')).toBeUndefined()
+  })
+})

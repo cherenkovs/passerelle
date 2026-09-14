@@ -121,10 +121,33 @@ export function slowRate(rate: number) {
   return Math.min(Math.max(rate * 0.5, SLOW_FLOOR), 0.6)
 }
 
+/**
+ * The learner's chosen voice, on whatever machine is doing the reading.
+ *
+ * A voiceURI is local to the device it was chosen on, so the name is tried
+ * next: the same voice often exists elsewhere under a different URI. When
+ * neither matches — a Mac voice asked for on a phone — this returns nothing
+ * and the caller falls back to the best French voice actually installed.
+ */
+export function resolveVoice(
+  voiceURI?: string | null,
+  voiceName?: string | null,
+): SpeechSynthesisVoice | undefined {
+  if (voiceURI) {
+    const exact = cachedVoices.find((v) => v.voiceURI === voiceURI)
+    if (exact) return exact
+  }
+  if (voiceName) {
+    return cachedVoices.find((v) => v.name === voiceName)
+  }
+  return undefined
+}
+
 export type SpeakOptions = {
   rate?: number
   pitch?: number
   voiceURI?: string
+  voiceName?: string
   lang?: string
   onEnd?: () => void
   onStart?: () => void
@@ -316,7 +339,7 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   u.pitch = opts.pitch ?? 1
 
   const voice =
-    (opts.voiceURI && cachedVoices.find((v) => v.voiceURI === opts.voiceURI)) ||
+    resolveVoice(opts.voiceURI, opts.voiceName) ??
     (u.lang.startsWith('fr') ? pickDefaultFrenchVoice() : undefined)
   if (voice) u.voice = voice
 

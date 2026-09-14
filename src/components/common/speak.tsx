@@ -16,6 +16,7 @@ import { useSettings } from '@/store/settings'
 export function useSpeak() {
   const rate = useSettings((s) => s.rate)
   const voiceURI = useSettings((s) => s.voiceURI)
+  const voiceName = useSettings((s) => s.voiceName)
   const gender = useGender()
   const [speaking, setSpeaking] = useState(false)
 
@@ -35,6 +36,7 @@ export function useSpeak() {
       void speakRaw(agree(text, gender), {
         rate: opts.rate ?? rate,
         voiceURI: voiceURI ?? undefined,
+        voiceName: voiceName ?? undefined,
         owner,
         onEnd: () => {
           setSpeaking(false)
@@ -44,7 +46,7 @@ export function useSpeak() {
         },
       })
     },
-    [gender, rate, voiceURI, owner],
+    [gender, rate, voiceURI, voiceName, owner],
   )
 
   /** Deliberately slow — for picking a phrase apart word by word. */

@@ -6,6 +6,14 @@ type SettingsState = {
   theme: Theme
   /** Chosen French voice (SpeechSynthesisVoice.voiceURI). */
   voiceURI: string | null
+  /**
+   * The same voice by name.
+   *
+   * A voiceURI identifies a voice on the machine it came from; the name is
+   * what survives the trip to another one, where the same voice may well exist
+   * under a different URI.
+   */
+  voiceName: string | null
   /** Playback rate, 0.4 – 1.2. Learners benefit from slightly slow speech. */
   rate: number
   /** Speak French automatically when an exercise appears. */
@@ -24,15 +32,18 @@ type SettingsState = {
 /**
  * The preferences that belong to the learner rather than to this machine.
  *
- * All of them except the voice. A voiceURI names a voice installed on one
- * device — "com.apple.voice.compact.fr-FR.Thomas" exists on a Mac and nowhere
- * else — so carrying it to a phone would select a voice that is not there and
- * silently override a perfectly good local choice. Everything else is a
- * decision about how the learner wants to study, and should follow them.
+ * The voice included. It is the one setting that names something belonging to
+ * a particular machine, which is why it was left out at first — but nothing is
+ * stored locally any more, so leaving it out meant the choice survived nowhere
+ * and reset on every page load. A voice that does not exist on the device
+ * reading it simply does not resolve, and the default is used instead, so
+ * carrying it costs nothing and not carrying it cost the setting entirely.
  */
-export type SyncedSettings = Omit<SettingsState, 'set' | 'applyTheme' | 'voiceURI'>
+export type SyncedSettings = Omit<SettingsState, 'set' | 'applyTheme'>
 
 const SYNCED_KEYS = [
+  'voiceURI',
+  'voiceName',
   'theme',
   'rate',
   'autoSpeak',
@@ -41,6 +52,8 @@ const SYNCED_KEYS = [
   'showIpa',
   'strictAccents',
 ] as const
+
+const NULLABLE_KEYS = new Set<string>(['voiceURI', 'voiceName'])
 
 export function syncedSettings(): SyncedSettings {
   const s = useSettings.getState()
@@ -56,9 +69,19 @@ export function applySyncedSettings(incoming: unknown): boolean {
   for (const key of SYNCED_KEYS) {
     const value = (incoming as Record<string, unknown>)[key]
     if (value === undefined || value === current[key]) continue
-    // Trust the shape only as far as it matches what is already there; a
-    // malformed document must not be able to set rate to a string.
-    if (typeof value !== typeof current[key]) continue
+
+    // Trust the shape only as far as it matches what is already there, so a
+    // malformed document cannot set rate to a string. The voice settings need
+    // saying explicitly: they are nullable, and `typeof null` is "object", so
+    // comparing against the current value would reject every real change
+    // whenever the current one happened to be null — which is exactly the
+    // state a fresh browser starts in.
+    if (NULLABLE_KEYS.has(key)) {
+      if (value !== null && typeof value !== 'string') continue
+    } else if (typeof value !== typeof current[key]) {
+      continue
+    }
+
     ;(patch as Record<string, unknown>)[key] = value
   }
 
@@ -79,6 +102,7 @@ export function applySyncedSettings(incoming: unknown): boolean {
 export const useSettings = create<SettingsState>()(((set, get) => ({
   theme: 'system',
   voiceURI: null,
+  voiceName: null,
   rate: 0.85,
   autoSpeak: true,
   dailyGoal: 60,

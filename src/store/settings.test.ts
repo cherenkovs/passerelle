@@ -9,6 +9,7 @@ beforeEach(() => {
   useSettings.setState({
     theme: 'system',
     voiceURI: null,
+    voiceName: null,
     rate: 0.85,
     autoSpeak: true,
     dailyGoal: 60,
@@ -29,11 +30,15 @@ describe('what travels with the account', () => {
     })
   })
 
-  it('leaves the chosen voice behind', () => {
-    // A voiceURI names a voice installed on one machine. Carrying
-    // "com.apple.voice.compact.fr-FR.Thomas" to a phone selects nothing.
-    useSettings.setState({ voiceURI: 'com.apple.voice.compact.fr-FR.Thomas' })
-    expect(syncedSettings()).not.toHaveProperty('voiceURI')
+  it('carries the chosen voice too, by URI and by name', () => {
+    // It was left out at first as device-specific. But nothing is stored
+    // locally any more, so excluding it meant the choice survived nowhere and
+    // reset on every page load.
+    useSettings.setState({ voiceURI: 'urn:mac:flo', voiceName: 'Flo (French (France))' })
+    expect(syncedSettings()).toMatchObject({
+      voiceURI: 'urn:mac:flo',
+      voiceName: 'Flo (French (France))',
+    })
   })
 
   it('applies a theme chosen on another device', () => {
@@ -42,11 +47,9 @@ describe('what travels with the account', () => {
     expect(useSettings.getState().theme).toBe('light')
   })
 
-  it('never lets a remote document overwrite this device’s voice', () => {
-    useSettings.setState({ voiceURI: 'local-voice' })
-    applySyncedSettings({ voiceURI: 'a-voice-from-a-mac', theme: 'dark' })
-    expect(useSettings.getState().voiceURI).toBe('local-voice')
-    expect(useSettings.getState().theme).toBe('dark')
+  it('accepts a voice chosen on another device', () => {
+    applySyncedSettings({ voiceURI: 'urn:mac:flo', voiceName: 'Flo (French (France))' })
+    expect(useSettings.getState().voiceName).toBe('Flo (French (France))')
   })
 })
 
