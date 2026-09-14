@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { loadVoices } from '@/lib/speech'
 import { adoptLegacyLocalData } from '@/lib/sync'
+import { watchForUpdates } from '@/lib/updates'
 import App from './App'
 
 // Warm the voice list early — Chrome populates it asynchronously.
@@ -19,6 +20,9 @@ void loadVoices()
 // returning learner was bounced to onboarding while their rescued progress was
 // still a tick away.
 adoptLegacyLocalData()
+
+// Don't leave a running app on an old build.
+watchForUpdates()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

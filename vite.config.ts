@@ -11,6 +11,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered by hand in main.tsx. autoUpdate installs a new worker but
+      // the page keeps the old one until every tab for the origin is closed —
+      // so an app left open, or added to a home screen, can serve a build from
+      // days ago and look like the deploy never happened.
+      injectRegister: null,
       includeAssets: ['favicon.svg'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
