@@ -63,6 +63,14 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # Stated on the job rather than left to the workflow-level block above.
+    # deploy-pages mints an OIDC token, and a run failed with "Ensure
+    # GITHUB_TOKEN has permission id-token: write" despite that block — so the
+    # inheritance is not something to rely on when the failure is a dead deploy.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
