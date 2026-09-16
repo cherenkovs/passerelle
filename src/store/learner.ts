@@ -343,14 +343,34 @@ export const useLearner = create<LearnerState>()(((set, get) => ({
     }),
 
   resetProgress: () =>
-    set((s) =>
-      patchActive(s, (p) => ({
-        ...emptyProfile(p.name, p.courseId),
-        id: p.id,
-        emoji: p.emoji,
-        createdAt: p.createdAt,
-      })),
-    ),
+    set((s) => {
+      const current = s.profiles.find((p) => p.id === s.activeId)
+      if (!current) return {}
+
+      // A reset has to out-argue the merge. Every write folds the account's
+      // copy back into what is being sent, which is what makes a half-loaded
+      // browser harmless — and an emptied profile under the same id is exactly
+      // the shape of a half-loaded one, so the lessons would come straight
+      // back. Clearing it in place stopped working the day writes started
+      // merging, silently: the button reported success and changed nothing.
+      //
+      // So the id is retired and the learner carries on under a new one. Same
+      // name, same course, same face, nothing behind it — which is what the
+      // dialog promises — and the tombstone is what makes it stick.
+      const fresh: Profile = {
+        ...emptyProfile(current.name, current.courseId),
+        emoji: current.emoji,
+        gender: current.gender,
+        createdAt: current.createdAt,
+      }
+      return {
+        profiles: s.profiles.map((p) => (p.id === current.id ? fresh : p)),
+        activeId: fresh.id,
+        removedIds: s.removedIds.includes(current.id)
+          ? s.removedIds
+          : [...s.removedIds, current.id],
+      }
+    }),
 
   addXp: (amount, answered = 0, correct = 0) =>
     set((s) => patchActive(s, (p) => bumpDay(p, amount, answered, correct))),

@@ -296,3 +296,49 @@ describe('a save in flight when the tab closes', () => {
     expect(sent.find((p) => p.id === 'rich')!.xp).toBeGreaterThan(4200)
   })
 })
+
+describe('the two clears that are meant to clear', () => {
+  it('resets progress for real, against a merge that would undo it', async () => {
+    const world = makeFirebase()
+    world.setStored({ profiles: [rich] })
+    const { sync, learner } = await freshModules(world.fb)
+
+    await sync.attachAfterSignIn()
+    world.emit({ profiles: [rich] })
+    await settle()
+
+    learner.useLearner.getState().resetProgress()
+    await settle()
+
+    const last = world.writes.at(-1)!
+    const sent = last.profiles as Profile[]
+    expect(sent).toHaveLength(1)
+    expect(sent[0].xp).toBe(0)
+    expect(sent[0].lessons).toEqual({})
+    // The name and course are what the dialog promises to keep.
+    expect(sent[0].name).toBe('Serhii')
+    expect(sent[0].courseId).toBe('a0-a1')
+    // And the old id is retired, or the account's copy merges straight back in.
+    expect(sent[0].id).not.toBe('rich')
+    expect(last.removedProfileIds).toContain('rich')
+  })
+
+  it('records the deletion of the last profile, with nothing left to send', async () => {
+    const world = makeFirebase()
+    world.setStored({ profiles: [rich] })
+    const { sync, learner } = await freshModules(world.fb)
+
+    await sync.attachAfterSignIn()
+    world.emit({ profiles: [rich] })
+    await settle()
+
+    learner.useLearner.getState().deleteProfile('rich')
+    await settle()
+
+    // Nothing to write in the profiles field, but the deletion still has to
+    // reach the account or a reload hands the profile back.
+    const last = world.writes.at(-1)!
+    expect(last.removedProfileIds).toContain('rich')
+    expect(last.profiles).toBeUndefined()
+  })
+})

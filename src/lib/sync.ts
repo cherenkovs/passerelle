@@ -210,9 +210,10 @@ async function push() {
   if (!target) return
   const { fb, ref } = target
 
-  // Nothing to say. Not a wipe any more — the merge would put the account's
-  // profiles straight back — but a write with nothing to add is still a write.
-  if (!profilesOf().length) return
+  // Nothing in hand and nothing to record: there is no message to send. Not a
+  // wipe any more either way — the merge would put the account's profiles
+  // straight back — but a write with nothing in it is still a write.
+  if (!profilesOf().length && !useLearner.getState().removedIds.length) return
 
   try {
     useSync.setState({ status: 'syncing' })
@@ -229,9 +230,15 @@ async function push() {
       // name, emoji and course from its second argument.
       const profiles = mergeProfileLists(remote, profilesOf()).filter((p) => !removed.has(p.id))
 
-      // Only reachable if every profile in hand has been deleted elsewhere.
-      // Leave the account as it is rather than emptying it.
-      if (!profiles.length) return
+      // Deleting the last profile, or resetting before making the new one, can
+      // leave nothing to send. The deletion still has to be recorded, or a
+      // reload reads the account's untouched copy and hands the profile back —
+      // so the tombstones go up on their own and the rest of the document is
+      // left exactly as it is.
+      if (!profiles.length) {
+        tx.set(ref, { removedProfileIds: [...removed] }, { merge: true })
+        return
+      }
 
       tx.set(ref, {
         profiles: stripUndefined(profiles),
