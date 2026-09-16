@@ -203,6 +203,16 @@ export const LEARNER_VERSION = 4
 type LearnerState = {
   profiles: Profile[]
   activeId: string | null
+  /**
+   * Profiles the learner has deleted, kept so the deletion can be stated.
+   *
+   * Every write to the account merges with what is already there, which is what
+   * makes a half-loaded browser harmless — it can only ever add. The cost is
+   * that a profile simply missing from the list is indistinguishable from one
+   * this device has not loaded yet, so removing one has to be said out loud
+   * rather than read off the absence.
+   */
+  removedIds: string[]
 
   // --- profiles
   createProfile: (name: string, courseId: string, gender?: Gender) => string
@@ -294,6 +304,7 @@ function bumpDay(p: Profile, xp: number, answered: number, correct: number): Pro
 export const useLearner = create<LearnerState>()(((set, get) => ({
   profiles: [],
   activeId: null,
+  removedIds: [],
 
   createProfile: (name, courseId, gender = 'm') => {
     const p = { ...emptyProfile(name, courseId), gender }
@@ -325,6 +336,9 @@ export const useLearner = create<LearnerState>()(((set, get) => ({
       return {
         profiles,
         activeId: s.activeId === id ? (profiles[0]?.id ?? null) : s.activeId,
+        // Said, not inferred: the account keeps a copy of this one, and without
+        // it the next write would merge the profile straight back in.
+        removedIds: s.removedIds.includes(id) ? s.removedIds : [...s.removedIds, id],
       }
     }),
 

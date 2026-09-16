@@ -70,6 +70,16 @@ let stopStore: (() => void) | null = null
 let stopSettings: (() => void) | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Stop listening in both directions. Safe to call when nothing is attached. */
+function detach(): void {
+  stopSnapshot?.()
+  stopStore?.()
+  stopSettings?.()
+  stopSnapshot = stopStore = stopSettings = null
+  if (pushTimer) clearTimeout(pushTimer)
+  pushTimer = null
+}
+
 /**
  * What is waiting to go up, so the toast can say which it was.
  *
@@ -99,6 +109,35 @@ export function profilesChanged(before: Profile[], after: Profile[]): boolean {
   })
 }
 let applying = false
+
+/**
+ * Everything the account says was removed, plus anything removed here since.
+ *
+ * The deletions come from the store, where deleteProfile records them, and not
+ * from noticing that a profile has gone missing from the list. Those two look
+ * identical and mean opposite things: one is the learner removing a name, the
+ * other is this browser not having finished loading. Guessing between them is
+ * how a store that had not filled in yet was read as an instruction to delete.
+ *
+ * They travel in the document too, so the device that did the deleting is not
+ * the only one that knows about it.
+ */
+function removedIds(data: Record<string, unknown> | undefined): Set<string> {
+  const stored = Array.isArray(data?.removedProfileIds) ? (data.removedProfileIds as unknown[]) : []
+  return new Set([
+    ...stored.filter((x): x is string => typeof x === 'string'),
+    ...useLearner.getState().removedIds,
+  ])
+}
+
+/**
+ * How long to wait for the account before saying there is no connection.
+ *
+ * Firestore does not report being offline as an error: the listener simply
+ * never fires from the server. Without this, a learner with no connection sits
+ * on "Завантажую твій акаунт…" for as long as they are willing to.
+ */
+const OFFLINE_AFTER_MS = 12_000
 
 function profilesOf(): Profile[] {
   return useLearner.getState().profiles
@@ -142,29 +181,68 @@ export function stripUndefined<T>(value: T): T {
   return value
 }
 
+/**
+ * Send this browser's state to the account, without ever subtracting from it.
+ *
+ * The write is a whole-document replace — one document holds every profile —
+ * and for a long time it replaced the account with whatever this browser
+ * happened to hold at that instant. That is safe only while the local store is
+ * guaranteed to be a superset of the account's, and nothing guaranteed it.
+ * Nothing is kept in this browser any more, so every load starts empty and
+ * fills in from a snapshot that arrives whenever the network gets round to it;
+ * any write that slipped in before it — a profile made at setup, a setting
+ * changed on the way past — replaced a year of work with a few seconds of it.
+ *
+ * So the write reads first, inside a transaction, and sends the merge of the
+ * two. Local wins the single values, because a name typed a second ago is
+ * newer than the one on the server; the account contributes everything this
+ * browser has not seen. A truncated local store is then simply a store with
+ * less in it, which the merge fills back in, instead of an instruction to
+ * delete. There is no ordering left for a race to get wrong.
+ *
+ * The transaction needs the network, where the old blind write could be queued
+ * offline. That is the right trade for this app: it requires a connection to
+ * show anything at all, and a queued write that erases the account on
+ * reconnect is not a feature worth keeping.
+ */
 async function push() {
   const target = await userDoc()
   if (!target) return
   const { fb, ref } = target
 
-  // A write is a whole-document replace, so an empty list does not mean
-  // "nothing changed" — it means "delete everything this account has". The app
-  // never legitimately reaches zero profiles: the last one cannot be deleted,
-  // and signing out stops these subscriptions before clearing the store.
-  // Reaching here with none is therefore a bug somewhere upstream, and the
-  // right response is to write nothing rather than to erase the account.
+  // Nothing to say. Not a wipe any more — the merge would put the account's
+  // profiles straight back — but a write with nothing to add is still a write.
   if (!profilesOf().length) return
 
   try {
     useSync.setState({ status: 'syncing' })
-    await fb.firestore.setDoc(ref, {
-      profiles: stripUndefined(profilesOf()),
-      // Theme, speed, daily goal and the rest: decisions about how this person
-      // wants to study, so they travel with the account. The chosen voice does
-      // not — see syncedSettings.
-      settings: stripUndefined(syncedSettings()),
-      version: LEARNER_VERSION,
-      updatedAt: fb.firestore.serverTimestamp(),
+    await fb.firestore.runTransaction(fb.db, async (tx) => {
+      const data = (await tx.get(ref)).data() as Record<string, unknown> | undefined
+      const removed = removedIds(data)
+      const remote = Array.isArray(data?.profiles)
+        ? (data.profiles as unknown[])
+            .map(normalizeProfile)
+            .filter((p): p is Profile => p !== null)
+        : []
+
+      // Remote first so local wins the single-value fields: mergeProfiles takes
+      // name, emoji and course from its second argument.
+      const profiles = mergeProfileLists(remote, profilesOf()).filter((p) => !removed.has(p.id))
+
+      // Only reachable if every profile in hand has been deleted elsewhere.
+      // Leave the account as it is rather than emptying it.
+      if (!profiles.length) return
+
+      tx.set(ref, {
+        profiles: stripUndefined(profiles),
+        // Theme, speed, daily goal and the rest: decisions about how this person
+        // wants to study, so they travel with the account. The chosen voice does
+        // not — see syncedSettings.
+        settings: stripUndefined(syncedSettings()),
+        removedProfileIds: [...removed],
+        version: LEARNER_VERSION,
+        updatedAt: fb.firestore.serverTimestamp(),
+      })
     })
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
     // Once per visible toast, not once per write: progress saves after every
@@ -209,9 +287,11 @@ function applySettingsFromRemote(incoming: unknown) {
 }
 
 /** Fold whatever the server has into the local store, keeping both sides' work. */
-function applyRemote(remote: unknown) {
+function applyRemote(remote: unknown, removed: Set<string>) {
   const incoming = Array.isArray(remote)
-    ? remote.map(normalizeProfile).filter((p): p is Profile => p !== null)
+    ? remote
+        .map(normalizeProfile)
+        .filter((p): p is Profile => p !== null && !removed.has(p.id))
     : []
   if (!incoming.length) return
 
@@ -250,16 +330,35 @@ async function startSyncing() {
 
   let accountHasAnswered = false
 
+  const giveUp = setTimeout(() => {
+    if (accountHasAnswered) return
+    useSync.setState({ status: 'error', error: 'Немає зв’язку з акаунтом', restoring: false })
+  }, OFFLINE_AFTER_MS)
+
   stopSnapshot?.()
-  stopSnapshot = fb.firestore.onSnapshot(
+  const unsubscribe = fb.firestore.onSnapshot(
     ref,
+    // Metadata changes included so the cache-then-server pair both arrive. The
+    // second one carries no new data, and is the only one that counts.
+    { includeMetadataChanges: true },
     (snap) => {
       // Our own write echoing back. Applying it would be harmless but would
       // restart the push cycle for nothing.
       if (snap.metadata.hasPendingWrites) return
 
-      applyRemote(snap.data()?.profiles)
-      applySettingsFromRemote(snap.data()?.settings)
+      const data = snap.data() as Record<string, unknown> | undefined
+      applyRemote(data?.profiles, removedIds(data))
+      applySettingsFromRemote(data?.settings)
+
+      // A cached answer is not the account answering. Offline — or in the
+      // moments before the first response arrives — Firestore raises the empty
+      // document it has locally, which says nothing about what the account
+      // holds. Treating that as the answer is what declared a returning learner
+      // profile-less, sent them to setup, and armed the writes in time for the
+      // new profile to be sent. Wait for the server.
+      if (snap.metadata.fromCache) return
+
+      clearTimeout(giveUp)
       useSync.setState({
         status: 'synced',
         lastSyncedAt: Date.now(),
@@ -273,7 +372,10 @@ async function startSyncing() {
       // Now — and not before — it is safe to send anything back.
       stopStore?.()
       stopStore = useLearner.subscribe((next, prev) => {
-        // Switching which profile is active writes nothing new.
+        // A deletion changes the list too, so it is covered here; what it also
+        // does is leave a tombstone behind, which is what stops the merge in
+        // push() handing the profile back. Switching which profile is active
+        // writes nothing new.
         if (profilesChanged(prev.profiles, next.profiles)) schedulePush()
       })
       stopSettings?.()
@@ -283,8 +385,15 @@ async function startSyncing() {
       // nothing changes afterwards.
       void push()
     },
-    (e) => useSync.setState({ status: 'error', error: e.message, restoring: false }),
+    (e) => {
+      clearTimeout(giveUp)
+      useSync.setState({ status: 'error', error: e.message, restoring: false })
+    },
   )
+  stopSnapshot = () => {
+    clearTimeout(giveUp)
+    unsubscribe()
+  }
 }
 
 /**
@@ -423,10 +532,7 @@ export async function deleteAccount(): Promise<void> {
 
   // Stop the subscriptions first, or the delete comes back as a snapshot and
   // the store tries to sync its way out of it.
-  stopSnapshot?.()
-  stopStore?.()
-  stopSettings?.()
-  stopSnapshot = stopStore = stopSettings = null
+  detach()
 
   await fb.firestore.deleteDoc(ref)
 
@@ -443,7 +549,7 @@ export async function deleteAccount(): Promise<void> {
     }
   }
 
-  useLearner.setState({ profiles: [], activeId: null })
+  useLearner.setState({ profiles: [], activeId: null, removedIds: [] })
   useSync.setState({
     status: 'off',
     email: null,
@@ -458,10 +564,7 @@ export async function signOut(): Promise<void> {
   const fb = await loadFirebase()
   // One last push, so work from this session is not stranded on this device.
   if (fb.authInstance.currentUser) await push()
-  stopSnapshot?.()
-  stopStore?.()
-  stopSettings?.()
-  stopSnapshot = stopStore = stopSettings = null
+  detach()
   await fb.auth.signOut(fb.authInstance)
   // Kept, unlike the other descriptions: with nothing stored in this browser,
   // "where did my progress go" is a real question at exactly this moment.
@@ -474,7 +577,7 @@ export async function signOut(): Promise<void> {
     restoring: false,
   })
   // The store is memory-only now, so signing out clears the data with it.
-  useLearner.setState({ profiles: [], activeId: null })
+  useLearner.setState({ profiles: [], activeId: null, removedIds: [] })
 }
 
 const LEGACY_KEY = 'passerelle:learner'
@@ -546,8 +649,14 @@ export async function initSync(): Promise<void> {
 
   fb.auth.onAuthStateChanged(fb.authInstance, (user) => {
     if (!user) {
+      // Before the store is cleared, not after. These subscriptions are what
+      // turn a change into a write, and clearing the store is a change: leaving
+      // them attached through a sign-out — or through a session expiring on its
+      // own, which does not go through signOut() at all — left them armed and
+      // pointed at an empty store.
+      detach()
       useSync.setState({ status: 'off', email: null, restoring: false })
-      useLearner.setState({ profiles: [], activeId: null })
+      useLearner.setState({ profiles: [], activeId: null, removedIds: [] })
       return
     }
     useSync.setState({ status: 'syncing', email: user.email })
