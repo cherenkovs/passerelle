@@ -258,6 +258,24 @@ async function push() {
   }
 }
 
+/**
+ * Send whatever is waiting on the debounce, now.
+ *
+ * A save is held for a moment so a burst of them becomes one write. That is
+ * fine while the tab is open and a problem the instant it is not: closing it
+ * inside that window would drop the last thing the learner did, and with
+ * nothing kept in this browser there is no second copy to notice it missing.
+ *
+ * Bound to the tab going away rather than to unload, which is too late to
+ * start a request. Nothing waiting means nothing to do.
+ */
+export function flushPending(): void {
+  if (!pushTimer) return
+  clearTimeout(pushTimer)
+  pushTimer = null
+  void push()
+}
+
 function schedulePush() {
   if (applying) return
   // Said at the moment of the change rather than when the write lands, so it
@@ -602,8 +620,19 @@ export function warmFirebase(): void {
  * sign-in that went the redirect route is collected here too — again by
  * asking, rather than by having left a marker behind before navigating away.
  */
+let flushBound = false
+
 export async function initSync(): Promise<void> {
   const fb = await loadFirebase()
+
+  if (!flushBound && typeof document !== 'undefined') {
+    flushBound = true
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPending()
+    })
+    // Safari does not reliably fire visibilitychange when a tab is closed.
+    window.addEventListener('pagehide', flushPending)
+  }
 
   try {
     await fb.auth.getRedirectResult(fb.authInstance)

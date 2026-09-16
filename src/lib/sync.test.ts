@@ -271,3 +271,28 @@ describe('losing the session takes the subscriptions with it', () => {
     expect(world.writes).toHaveLength(before)
   })
 })
+
+describe('a save in flight when the tab closes', () => {
+  it('goes out immediately instead of waiting for the debounce', async () => {
+    const world = makeFirebase()
+    world.setStored({ profiles: [rich] })
+    const { sync, learner } = await freshModules(world.fb)
+
+    await sync.attachAfterSignIn()
+    world.emit({ profiles: [rich] })
+    await settle()
+    const before = world.writes.length
+
+    learner.useLearner.getState().addXp(40, 1, 1)
+    // Still inside the window where writes are being coalesced.
+    await vi.advanceTimersByTimeAsync(100)
+    expect(world.writes).toHaveLength(before)
+
+    sync.flushPending()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(world.writes.length).toBe(before + 1)
+    const sent = world.writes.at(-1)!.profiles as Profile[]
+    expect(sent.find((p) => p.id === 'rich')!.xp).toBeGreaterThan(4200)
+  })
+})
