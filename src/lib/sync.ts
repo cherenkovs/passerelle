@@ -245,12 +245,6 @@ async function push() {
       })
     })
     useSync.setState({ status: 'synced', lastSyncedAt: Date.now(), error: null })
-    // Once per visible toast, not once per write: progress saves after every
-    // exercise, and a lesson would otherwise leave a column of identical notes.
-    // Nothing pending means this is the push on connect, which has nothing to
-    // announce: the learner did not just do anything.
-    // Now it is in the account, the browser copy can go.
-    dropLegacyLocalData()
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Не вдалося синхронізувати'
     useSync.setState({ status: 'error', error: message })
@@ -580,47 +574,20 @@ export async function signOut(): Promise<void> {
   useLearner.setState({ profiles: [], activeId: null, removedIds: [] })
 }
 
-const LEGACY_KEY = 'passerelle:learner'
-
-/**
- * Take in progress left by the version that stored profiles in this browser.
+/*
+ * There is no browser storage in this file, and none anywhere else in the app.
  *
- * It is read into memory on startup and only deleted once it has been pushed
- * to the account, never before: someone who has not signed in yet still has
- * their course, and the key is cleared the moment there is somewhere safer for
- * it to live. Dropping it on sight would have wiped whatever had not synced.
+ * There was one thing left: a read of the key the pre-account version wrote,
+ * which pulled that progress into memory and then deleted the key. It was a
+ * migration for a state that no longer exists — every account has synced many
+ * times since — and keeping it meant the app still touched localStorage, which
+ * is not what was asked for. The learner's data is in the account and nowhere
+ * else.
+ *
+ * The one thing this browser does hold is Firebase Auth's own session token,
+ * in its own IndexedDB store. That is not the learner's data — it is what
+ * makes a reload not a re-login — and it is Firebase's to manage.
  */
-export function adoptLegacyLocalData(): void {
-  try {
-    const raw = localStorage.getItem(LEGACY_KEY)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as { state?: { profiles?: unknown[]; activeId?: string | null } }
-    const profiles = (parsed.state?.profiles ?? [])
-      .map(normalizeProfile)
-      .filter((p): p is Profile => p !== null)
-    if (!profiles.length) {
-      localStorage.removeItem(LEGACY_KEY)
-      return
-    }
-    const merged = mergeProfileLists(useLearner.getState().profiles, profiles)
-    useLearner.setState({
-      profiles: merged,
-      activeId: merged.some((p) => p.id === parsed.state?.activeId)
-        ? (parsed.state?.activeId ?? merged[0].id)
-        : merged[0].id,
-    })
-  } catch {
-    /* unreadable — leave it alone rather than destroy it */
-  }
-}
-
-function dropLegacyLocalData(): void {
-  try {
-    localStorage.removeItem(LEGACY_KEY)
-  } catch {
-    /* private mode */
-  }
-}
 
 /** Start fetching the SDK now, so a later click can open a popup immediately. */
 export function warmFirebase(): void {
