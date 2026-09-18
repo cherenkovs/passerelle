@@ -739,3 +739,27 @@ describe('finishing a sound and pacing a phrase', () => {
     expect(wordByWordText('Oui, je suis là.')).toBe('Oui. je. suis. là.')
   })
 })
+
+describe('alternatives are said one at a time', () => {
+  it('gives each form its own utterance, with the shared verb on both', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak } = await import('./speech')
+    const run = speak('il / elle a')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(spoken.map((s) => s.text)).toEqual(['il a.'])
+    lastUtterance!.onend?.(new Event('end') as never)
+    await new Promise((r) => setTimeout(r, 400))
+    lastUtterance!.onend?.(new Event('end') as never)
+    await run
+    expect(spoken.map((s) => s.text)).toEqual(['il a.', 'elle a.'])
+  })
+
+  it('leaves a plain phrase as one utterance', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak, alternativesOf } = await import('./speech')
+    await speak('Je ne parle pas très bien français.')
+    expect(spoken).toHaveLength(1)
+    expect(alternativesOf('content / contente')).toEqual(['content', 'contente'])
+    expect(alternativesOf("qu'il / elle prenne")).toEqual(["qu'il prenne", "qu'elle prenne"])
+  })
+})

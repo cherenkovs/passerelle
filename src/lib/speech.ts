@@ -429,6 +429,7 @@ export function speakable(text: string) {
 
   return (
     expandAlternatives(cleaned)
+      .replace(new RegExp(ALT, 'g'), '. ')
       // Joining alternatives can double up a comma when one already ended in
       // one ("Bien à vous, / Bonne journée,").
       .replace(/,\s*,/g, ',')
@@ -471,13 +472,30 @@ const SUBJECT_PRONOUNS = new Set([
  * common, and borrowing a tail would invent text — "Ainsi, / Par exemple,"
  * must not become "Ainsi, exemple,".
  */
+/** Marks the boundary between alternatives; never appears in real text. */
+const ALT = '\u0001'
+
+/**
+ * The alternatives of a slashed string, each whole.
+ *
+ * Every punctuation mark was tried as a pause between two monosyllables —
+ * comma, semicolon, dash, ellipsis, full stop — and measured: on Apple voices
+ * none of them produces one. "il. elle." plays in 484 ms, barely more than
+ * "il." alone at 443. The only pause the engine respects is the end of an
+ * utterance, so `speak` gives each alternative its own.
+ */
+export function alternativesOf(text: string): string[] {
+  return expandAlternatives(text)
+    .split(ALT)
+    .map((p) => p.trim())
+    .filter(Boolean)
+}
+
 function expandAlternatives(text: string) {
   const parts = text.split(' / ')
   if (parts.length < 2) return text
 
-  // A full stop between alternatives, not a comma. With a comma the voice ran
-  // "il, elle" together into one word; a stop gives each form its own breath.
-  const SEP = '. '
+  const SEP = ALT
 
   // "qu'il / elle prenne": the conjunction is written once, on the first
   // pronoun, and belongs to every one — "qu'il prenne. qu'elle prenne".
@@ -557,6 +575,29 @@ export function frenchIn(text: string): string {
 
 export async function speak(text: string, opts: SpeakOptions = {}) {
   if (!supportsTTS() || !text?.trim()) return
+
+  // "il / elle est" is two utterances, with the engine's own gap between
+  // them — the one pause it respects. The word index the highlight follows
+  // runs on across the parts.
+  if (!opts.partOfSequence) {
+    const parts = alternativesOf(text)
+    if (parts.length > 1) {
+      const starts: number[] = []
+      let n = 0
+      for (const p of parts) {
+        starts.push(n)
+        n += wordsOf(p).length
+      }
+      await speakSequence(parts, {
+        ...opts,
+        gapMs: 320,
+        onWord: opts.onWord ? (part, word) => opts.onWord!(starts[part] + word) : undefined,
+      })
+      opts.onEnd?.()
+      return
+    }
+  }
+
   if (!opts.partOfSequence) bump()
 
   // Only wait for the voice list when we haven't got one yet. Awaiting

@@ -505,7 +505,9 @@ function Token({ token, active }: { token: string; active?: boolean }) {
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
-          onClick={() => speak(gloss.word?.fr ?? token)}
+          // The word as written, not its dictionary head form: a tap on "Il"
+          // must say "il", not the entry "il / elle" it was found under.
+          onClick={() => speak(token)}
           className={cn(WORD_CLASS, active && ACTIVE_CLASS)}
         >
           {token}
