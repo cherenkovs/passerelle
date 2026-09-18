@@ -280,7 +280,9 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
   const showIpa = useSettings((s) => s.showIpa)
   const { speak } = useSpeak()
 
-  const [queue, setQueue] = useState(cards)
+  // A card with nothing to show — an exercise since removed from the course —
+  // is skipped rather than ending the session in front of it.
+  const [queue, setQueue] = useState(() => cards.filter((c) => faceOf(c.id)))
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [reviewed, setReviewed] = useState(0)

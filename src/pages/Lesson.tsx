@@ -506,7 +506,7 @@ function QuickCheck({ examples }: { examples: { fr: string; uk: string }[] }) {
                     chosen === pair.right ? 'text-success' : 'text-danger',
                   )}
                 >
-                  {chosen === pair.right ? 'Так. ' : 'Ні — правильно друге. '}
+                  {chosen === pair.right ? 'Так. ' : `Ні — правильно «${pair.right}». `}
                   <span className="text-fg-muted">{pair.uk}</span>
                 </p>
               )}
