@@ -672,8 +672,9 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
  * "il est" takes about 150, the extra being a held, released l that the ear
  * takes for a second syllable ("il-le"). Nothing written around the word
  * changes that (measured: commas, stops, dashes, spaces). What does is the
- * rate, which the engine honours on the fast side: at 1.6× the lone word is
- * back near its in-sentence length and sounds like the word again.
+ * rate, which the engine honours on the fast side: at 2× the lone word is
+ * back at its in-sentence length (measured: 230 ms) and sounds like the
+ * word again.
  *
  * Only for a lone word of up to three letters; longer words are not dragged
  * the same way, and a phrase never is.
@@ -683,7 +684,7 @@ export function paceFor(spoken: string, rate: number): number {
   if (words.length !== 1) return rate
   const letters = words[0].replace(/[^\p{L}]/gu, '')
   if (letters.length > 3) return rate
-  return Math.min(rate * 1.6, 1.6)
+  return Math.min(rate * 2, 2)
 }
 
 /**
