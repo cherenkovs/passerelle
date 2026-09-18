@@ -152,15 +152,14 @@ const MAIN_SIZE: Record<ControlSize, string> = {
 }
 
 /**
- * The secondary buttons are visually lighter than the main one but not
- * smaller to the finger: 28px is the floor a thumb can hit reliably, and the
- * slow button is the one a beginner reaches for most.
+ * The three buttons are the same size and the same shape: the slow button is
+ * the one a beginner reaches for most, and a smaller, lighter one read as
+ * secondary — something to try later rather than now. Only the active one
+ * is filled solid.
  */
-const AUX_SIZE: Record<ControlSize, string> = {
-  sm: 'size-7 [&_svg]:size-3.5',
-  md: 'size-8 [&_svg]:size-4',
-  lg: 'size-9 [&_svg]:size-[18px]',
-}
+const AUX_CLASS =
+  'bg-primary-soft text-primary-soft-fg grid shrink-0 place-items-center rounded-full transition-all hover:brightness-95 active:scale-95 dark:hover:brightness-110 focus-visible:ring-primary/40 outline-none focus-visible:ring-4'
+const ACTIVE_AUX = 'bg-primary text-primary-fg ring-primary/25 ring-4'
 
 export function SpeakControls({
   text,
@@ -191,7 +190,7 @@ export function SpeakControls({
     // A span, not a div: this sits inside prose paragraphs, and a <div> inside
     // a <p> is invalid HTML — the browser silently closes the paragraph early,
     // which breaks the run of text around it. `inline-flex` renders the same.
-    <span className={cn('inline-flex items-center gap-1 align-middle', className)}>
+    <span className={cn('inline-flex items-center gap-1.5 align-middle', className)}>
       {showMain && (
         <button
           type="button"
@@ -217,12 +216,7 @@ export function SpeakControls({
           aria-label="Прослухати повільно"
           aria-pressed={ctl.mode === 'slow'}
           title="Повільно"
-          className={cn(
-            'text-fg-subtle hover:bg-surface-2 hover:text-fg grid shrink-0 place-items-center rounded-full transition-colors',
-            'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
-            AUX_SIZE[size],
-            ctl.mode === 'slow' && 'bg-primary-soft text-primary-soft-fg',
-          )}
+          className={cn(AUX_CLASS, MAIN_SIZE[size], ctl.mode === 'slow' && ACTIVE_AUX)}
         >
           <Turtle />
         </button>
@@ -235,12 +229,7 @@ export function SpeakControls({
           aria-label="Прослухати по словах"
           aria-pressed={ctl.mode === 'words'}
           title="По словах"
-          className={cn(
-            'text-fg-subtle hover:bg-surface-2 hover:text-fg grid shrink-0 place-items-center rounded-full transition-colors',
-            'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
-            AUX_SIZE[size],
-            ctl.mode === 'words' && 'bg-primary-soft text-primary-soft-fg',
-          )}
+          className={cn(AUX_CLASS, MAIN_SIZE[size], ctl.mode === 'words' && ACTIVE_AUX)}
         >
           <WholeWord />
         </button>
