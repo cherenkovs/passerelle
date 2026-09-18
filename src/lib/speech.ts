@@ -608,7 +608,7 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
 
   const synth = window.speechSynthesis
 
-  const u = new SpeechSynthesisUtterance(rounded(speakable(text)))
+  const u = new SpeechSynthesisUtterance(speakable(text))
   u.lang = opts.lang ?? 'fr-FR'
   u.rate = opts.rate ?? 0.92
   u.pitch = opts.pitch ?? 1
@@ -723,56 +723,6 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
 }
 
 /**
- * A full stop where there was none.
- *
- * A word said on its own — "Je", "à" — ends with the engine cutting the
- * last sound short, as if the recording stopped a moment early; it is most
- * audible on the shortest words, which is exactly what the tap-to-hear and
- * word-by-word readings play. Terminal punctuation makes the voice finish
- * the sound and fall, the way a spoken word ends.
- */
-export function rounded(text: string): string {
-  const t = text.trim()
-  if (!t) return t
-  return /[.!?…»"]$/.test(t) ? t : `${t}.`
-}
-
-/**
- * The slow reading as one utterance.
- *
- * Earlier this played the groups as separate utterances, which added the
- * engine's start-up to every group and clipped the end of each one. One
- * utterance with a comma between groups gives the same breaths from the
- * voice's own phrasing, with nothing cut.
- *
- * The pauses are where the slowness comes from, so there have to be some:
- * a short phrase pauses after every two words rather than three. A word on
- * its own has nowhere to pause and is said once at the slow rate.
- */
-export function slowText(text: string): string {
-  const words = wordsOf(text)
-  // A lone word has nowhere to pause; it is simply said once at the slow
-  // rate. Saying it twice was tried and sounded odd.
-  if (words.length <= 1) return speakable(text)
-  // Two words get a pause between them; up to five, a pause after each two.
-  const size = words.length <= 2 ? 1 : words.length <= 5 ? 2 : 3
-  return slowChunks(text, size)
-    .map((c, i, all) => (i < all.length - 1 && !/[,;:.!?…]$/.test(c) ? `${c},` : c))
-    .join(' ')
-}
-
-/**
- * The word-by-word reading as one utterance: each word ends the sentence,
- * so the voice says it whole, pauses, and starts the next.
- */
-export function wordByWordText(text: string): string {
-  return wordsOf(text)
-    .map((w) => w.replace(/[,;:]+$/, ''))
-    .map((w) => (/[.!?…]$/.test(w) ? w : `${w}.`))
-    .join(' ')
-}
-
-/**
  * A phrase cut into short groups, for the slow reading.
  *
  * Asking the engine for a low rate is not enough: the system voices on
@@ -780,7 +730,17 @@ export function wordByWordText(text: string): string {
  * measured, not assumed. What makes speech genuinely easier to follow is
  * the pauses: two or three words, a breath, two or three more. Groups end
  * at punctuation where there is any, so a clause is never split mid-way.
+ *
+ * Each group is its own utterance. No punctuation makes the engine pause
+ * between short words — that was measured too — and a full stop after a
+ * short word makes it read an abbreviation ("je." came out as "jé-dé").
  */
+export function slowGroups(text: string): string[] {
+  const n = wordsOf(text).length
+  // Two words get a pause between them; up to five, a pause after each two.
+  return slowChunks(text, n <= 2 ? 1 : n <= 5 ? 2 : 3)
+}
+
 export function slowChunks(text: string, size = 3): string[] {
   const words = speakable(text).split(/\s+/).filter(Boolean)
   const out: string[] = []

@@ -7,9 +7,9 @@ import { parseEmphasis, type Span } from '@/lib/emphasis'
 import {
   cancelSpeechBy,
   loadVoices,
-  slowText,
+  slowGroups,
   speak as speakRaw,
-  wordByWordText,
+  speakSequence,
   wordsOf,
 } from '@/lib/speech'
 import { cn } from '@/lib/utils'
@@ -90,6 +90,36 @@ export function useSpeak(): SpeakController {
     [gender, rate, voiceURI, voiceName, owner, done],
   )
 
+  /**
+   * Several utterances in a row, the highlight running on across them.
+   *
+   * The pause between utterances is the one pause the engine honours; the
+   * slow and word-by-word readings are built from it.
+   */
+  const sequence = useCallback(
+    (parts: string[], which: SpeakMode, rateFor: number, gapMs: number) => {
+      if (!parts.length) return
+      const starts: number[] = []
+      let n = 0
+      for (const p of parts) {
+        starts.push(n)
+        n += wordsOf(p).length
+      }
+      setMode(which)
+      setActiveWord(null)
+      void speakSequence(parts, {
+        rate: rateFor,
+        gapMs,
+        voiceURI: voiceURI ?? undefined,
+        voiceName: voiceName ?? undefined,
+        owner,
+        onPart: (i) => setActiveWord(starts[i]),
+        onWord: (part, word) => setActiveWord(starts[part] + word),
+      }).then(done)
+    },
+    [voiceURI, voiceName, owner, done],
+  )
+
   const speak = useCallback(
     (text: string, opts: { rate?: number; onEnd?: () => void } = {}) => say(text, 'normal', opts),
     [say],
@@ -103,19 +133,16 @@ export function useSpeak(): SpeakController {
    * phrase down. The highlight still follows word by word across the groups.
    */
   const speakSlow = useCallback(
-    (text: string) => say(slowText(text), 'slow', { rate: slowSpeed }),
-    [say, slowSpeed],
+    (text: string) => sequence(slowGroups(agree(text, gender)), 'slow', slowSpeed, 300),
+    [sequence, gender, slowSpeed],
   )
 
-  /** One word at a time, each said whole, with room between them. */
+  /** One word at a time, each its own utterance, with room between them. */
   const speakWords = useCallback(
-    (text: string) => {
-      if (!wordsOf(text).length) return
-      // A touch under the learner's speed: single words said at full pace
-      // come out clipped, and clipped is the opposite of what this is for.
-      say(wordByWordText(text), 'words', { rate: Math.min(rate, 0.85) })
-    },
-    [say, rate],
+    // A touch under the learner's speed: single words said at full pace
+    // come out clipped, and clipped is the opposite of what this is for.
+    (text: string) => sequence(wordsOf(agree(text, gender)), 'words', Math.min(rate, 0.85), 380),
+    [sequence, gender, rate],
   )
 
   const stop = useCallback(() => {

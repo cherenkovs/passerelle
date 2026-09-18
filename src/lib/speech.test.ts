@@ -317,7 +317,7 @@ describe('speak', () => {
     const pending = speak('bonjour')
     synth.__populate()
     await pending
-    expect(spoken[0].text).toBe('bonjour.')
+    expect(spoken[0].text).toBe('bonjour')
   })
 
   it('cancels the previous utterance so taps do not queue up', async () => {
@@ -328,15 +328,14 @@ describe('speak', () => {
     // One cancel per utterance: the cancel-then-resume handshake in front of
     // every one is what keeps Chrome's engine from jamming.
     expect(cancels).toBe(2)
-    expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.'])
+    expect(spoken.map((s) => s.text)).toEqual(['un', 'deux'])
   })
 
   it('sends the cleaned text, not the written form', async () => {
     install([voice('Jacques', 'fr-FR')])
     const { speak } = await import('./speech')
     await speak('les amis → [le‿za.mi]')
-    // With a full stop, so the last sound is finished rather than cut.
-    expect(spoken[0].text).toBe('les amis.')
+    expect(spoken[0].text).toBe('les amis')
   })
 
   it('ignores empty text instead of speaking silence', async () => {
@@ -679,7 +678,7 @@ describe('following the voice word by word', () => {
     lastUtterance!.onend?.(new Event('end') as never)
     await run
     expect(parts).toEqual([0, 1])
-    expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.', 'bonjour.'])
+    expect(spoken.map((s) => s.text)).toEqual(['un', 'deux', 'bonjour'])
   })
 })
 
@@ -701,42 +700,26 @@ describe('the slow reading', () => {
   })
 })
 
-describe('finishing a sound and pacing a phrase', () => {
-  it('ends a bare word with a full stop, and leaves punctuation alone', async () => {
+describe('pacing the slow reading', () => {
+  it('groups by length: a pause between two words, after each two up to five', async () => {
     install([])
-    const { rounded } = await import('./speech')
-    expect(rounded('Je')).toBe('Je.')
-    expect(rounded('Ça va ?')).toBe('Ça va ?')
-    expect(rounded('«Bonjour»')).toBe('«Bonjour»')
-    expect(rounded('')).toBe('')
+    const { slowGroups } = await import('./speech')
+    expect(slowGroups('Tu parles français ?')).toEqual(['Tu parles', 'français ?'])
+    expect(slowGroups('au revoir')).toEqual(['au', 'revoir'])
+    expect(slowGroups('bonjour')).toEqual(['bonjour'])
+    expect(slowGroups('Je ne parle pas très bien français.')).toEqual([
+      'Je ne parle',
+      'pas très bien',
+      'français.',
+    ])
   })
 
-  it('paces the slow reading with commas between groups, in one utterance', async () => {
-    install([])
-    const { slowText } = await import('./speech')
-    expect(slowText('Je ne parle pas très bien français.')).toBe(
-      'Je ne parle, pas très bien, français.',
-    )
-    expect(slowText('Oui, je suis très fatiguée ce soir.')).toBe(
-      'Oui, je suis très, fatiguée ce soir.',
-    )
-  })
-
-  it('still has somewhere to pause in a short phrase', async () => {
-    install([])
-    const { slowText } = await import('./speech')
-    // Three words: a pause after two, or there would be none at all.
-    expect(slowText('Tu parles français ?')).toBe('Tu parles, français ?')
-    expect(slowText('au revoir')).toBe('au, revoir')
-    // One word has no gap to slow down in; it is said once, at the rate.
-    expect(slowText('bonjour')).toBe('bonjour')
-  })
-
-  it('says each word whole in the word-by-word reading', async () => {
-    install([])
-    const { wordByWordText } = await import('./speech')
-    expect(wordByWordText('Tu parles français ?')).toBe('Tu. parles. français.')
-    expect(wordByWordText('Oui, je suis là.')).toBe('Oui. je. suis. là.')
+  it('never puts a full stop after a word, which the engine would spell out', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak } = await import('./speech')
+    await speak('je')
+    // "je." is read as an abbreviation — "jé-dé" — so the word goes as it is.
+    expect(spoken[0].text).toBe('je')
   })
 })
 
@@ -746,12 +729,12 @@ describe('alternatives are said one at a time', () => {
     const { speak } = await import('./speech')
     const run = speak('il / elle a')
     await new Promise((r) => setTimeout(r, 0))
-    expect(spoken.map((s) => s.text)).toEqual(['il a.'])
+    expect(spoken.map((s) => s.text)).toEqual(['il a'])
     lastUtterance!.onend?.(new Event('end') as never)
     await new Promise((r) => setTimeout(r, 400))
     lastUtterance!.onend?.(new Event('end') as never)
     await run
-    expect(spoken.map((s) => s.text)).toEqual(['il a.', 'elle a.'])
+    expect(spoken.map((s) => s.text)).toEqual(['il a', 'elle a'])
   })
 
   it('leaves a plain phrase as one utterance', async () => {
