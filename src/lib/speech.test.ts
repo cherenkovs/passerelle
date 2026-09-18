@@ -27,14 +27,18 @@ function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
     getVoices: () => available,
     speak: (u: SpeechSynthesisUtterance) => {
       lastUtterance = u
+      synth.speaking = true
       spoken.push({ text: u.text, lang: u.lang, rate: u.rate, voice: u.voice as never })
       setTimeout(() => u.onstart?.(new Event('start') as never), 0)
     },
     cancel: () => {
       cancels++
+      synth.speaking = false
     },
     pause: () => {},
     resume: () => {},
+    paused: false,
+    pending: false,
     speaking: false,
     addEventListener: (_: string, fn: () => void) => listeners.push(fn),
     removeEventListener: () => {},
@@ -61,10 +65,23 @@ function install(voices: FakeVoice[], opts: { populateLate?: boolean } = {}) {
       pitch = 1
       voice: unknown = null
       onstart: (() => void) | null = null
-      onend: (() => void) | null = null
       onerror: (() => void) | null = null
+      private _onend: ((e: unknown) => void) | null = null
       constructor(text: string) {
         this.text = text
+      }
+      // Ending an utterance frees the engine, as it does in a real one.
+      get onend() {
+        const fn = this._onend
+        return fn
+          ? (e: unknown) => {
+              synth.speaking = false
+              fn(e)
+            }
+          : null
+      }
+      set onend(fn: ((e: unknown) => void) | null) {
+        this._onend = fn
       }
     },
   )
@@ -305,7 +322,9 @@ describe('speak', () => {
     const { speak } = await import('./speech')
     await speak('un')
     await speak('deux')
-    expect(cancels).toBe(2)
+    // One cancel, not two: the first tap found nothing to cancel, and a
+    // needless cancel is a chance for Chrome to stall the next utterance.
+    expect(cancels).toBe(1)
     expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.'])
   })
 

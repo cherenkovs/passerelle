@@ -545,8 +545,13 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   // single tap on a word.
   if (!cachedVoices.length) await loadVoices()
 
-  // Barge-in: a new utterance always replaces the old one.
-  window.speechSynthesis.cancel()
+  // Barge-in: a new utterance always replaces the old one — but cancel() is
+  // only called when there is something to cancel. Chrome on a Mac stalls
+  // for seconds, sometimes, after a cancel() followed straight away by
+  // speak(); every needless cancel is another chance for it to.
+  const synth = window.speechSynthesis
+  const wasBusy = synth.speaking || synth.pending
+  if (wasBusy) synth.cancel()
 
   const u = new SpeechSynthesisUtterance(rounded(speakable(text)))
   u.lang = opts.lang ?? 'fr-FR'
@@ -612,15 +617,25 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
 
   currentUtterance = u
   currentOwner = opts.owner ?? null
-  window.speechSynthesis.speak(u)
 
-  // Chrome bug: synthesis pauses itself on long utterances.
-  const keepAlive = setInterval(() => {
-    if (currentUtterance !== u) return clearInterval(keepAlive)
-    if (!window.speechSynthesis.speaking) return clearInterval(keepAlive)
-    window.speechSynthesis.pause()
-    window.speechSynthesis.resume()
-  }, 9000)
+  // After a cancel, give the engine a beat before the next utterance; and if
+  // a previous cancel left it paused — Chrome does that — wake it.
+  if (wasBusy) await new Promise((r) => setTimeout(r, 40))
+  if (currentUtterance !== u) return // superseded during the beat
+  synth.speak(u)
+  if (synth.paused) synth.resume()
+
+  // Chrome bug: synthesis stops itself partway through a long utterance on
+  // a network voice. Pausing and resuming keeps it going. Local voices do
+  // not need it, and on them the same nudge can itself cause a hiccup.
+  if (voice && !voice.localService) {
+    const keepAlive = setInterval(() => {
+      if (currentUtterance !== u) return clearInterval(keepAlive)
+      if (!synth.speaking) return clearInterval(keepAlive)
+      synth.pause()
+      synth.resume()
+    }, 9000)
+  }
 }
 
 /**

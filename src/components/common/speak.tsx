@@ -123,17 +123,19 @@ export function useSpeak(): SpeakController {
     done()
   }, [owner, done])
 
+  /**
+   * Play in the given mode. A click while already playing starts it again
+   * from the beginning: that is what a second tap means to anyone who has
+   * used a language app, and "stop" is what a rapid second tap used to do
+   * here — so several taps in a row alternated between playing and silence.
+   */
   const toggle = useCallback(
     (text: string, which: SpeakMode) => {
-      if (mode === which) {
-        stop()
-        return
-      }
       if (which === 'slow') speakSlow(text)
       else if (which === 'words') speakWords(text)
       else speak(text)
     },
-    [mode, stop, speak, speakSlow, speakWords],
+    [speak, speakSlow, speakWords],
   )
 
   return { speak, speakSlow, speakWords, toggle, stop, speaking: mode !== null, mode, activeWord }
