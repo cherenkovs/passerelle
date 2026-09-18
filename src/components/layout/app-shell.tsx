@@ -6,6 +6,7 @@ import {
   Check,
   Flame,
   GraduationCap,
+  MessageCircleQuestion,
   Headphones,
   Home,
   Layers,
@@ -41,6 +42,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { to: '/course', label: 'Курс', icon: GraduationCap },
       { to: '/review', label: 'Повторення', icon: Layers },
       { to: '/reference', label: 'Довідник', icon: BookText },
+      { to: '/professor', label: 'Професор', icon: MessageCircleQuestion },
     ],
   },
   {
@@ -66,7 +68,7 @@ const MOBILE_ITEMS: NavItem[] = [
   { to: '/', label: 'Головна', icon: Home },
   { to: '/course', label: 'Курс', icon: GraduationCap },
   { to: '/review', label: 'Повтор', icon: Layers },
-  { to: '/notebook', label: 'Зошит', icon: Notebook },
+  { to: '/professor', label: 'Професор', icon: MessageCircleQuestion },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {

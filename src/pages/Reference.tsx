@@ -1,7 +1,7 @@
 import * as Accordion from '@radix-ui/react-accordion'
 import { BookMarked, ChevronDown, Rows3, Search, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { EmptyState, LevelChip, PageHeader } from '@/components/common/misc'
 import { RichText } from '@/components/common/rich-text'
 import { SpokenLine } from '@/components/common/speak'
@@ -29,7 +29,9 @@ const LEVELS = ['A1', 'A2', 'B1', 'B2'] as const
  * top of the page, not wherever module 17 happens to fall.
  */
 export function ReferencePage() {
-  const [query, setQuery] = useState('')
+  // Arrived from the professor with a rule in mind: start there.
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(params.get('q') ?? '')
   const [level, setLevel] = useState<string | null>(null)
   const [tablesOnly, setTablesOnly] = useState(false)
 
@@ -179,7 +181,7 @@ function Chip({
   )
 }
 
-function EntryHeader({ entry, compact }: { entry: GrammarEntry; compact?: boolean }) {
+export function EntryHeader({ entry, compact }: { entry: GrammarEntry; compact?: boolean }) {
   return (
     <div className="mb-3 flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -202,7 +204,7 @@ function EntryHeader({ entry, compact }: { entry: GrammarEntry; compact?: boolea
   )
 }
 
-function EntryBody({ entry }: { entry: GrammarEntry }) {
+export function EntryBody({ entry }: { entry: GrammarEntry }) {
   return (
     <>
       <RichText>{entry.body}</RichText>

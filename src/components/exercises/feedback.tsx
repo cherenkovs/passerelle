@@ -1,7 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Lightbulb, XCircle } from 'lucide-react'
+import { CheckCircle2, GraduationCap, Lightbulb, XCircle } from 'lucide-react'
+import { useState } from 'react'
+import { ProfessorPanel } from '@/components/common/professor'
 import { SpeakInline } from '@/components/common/rich-text'
 import { SpeakButton } from '@/components/common/speak'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import type { Exercise } from '@/content'
 import { frenchIn } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import type { Outcome } from './check'
@@ -19,12 +23,16 @@ const COPY = {
 export function FeedbackBar({
   outcome,
   explain,
+  exercise,
   className,
 }: {
   outcome: Outcome | null
   explain?: string
+  /** When given, a miss offers the professor, opened on this exercise. */
+  exercise?: Exercise
   className?: string
 }) {
+  const [asking, setAsking] = useState(false)
   return (
     <AnimatePresence mode="wait">
       {outcome && (
@@ -82,9 +90,35 @@ export function FeedbackBar({
                   <SpeakInline>{explain}</SpeakInline>
                 </p>
               )}
+
+              {/* The moment of a mistake is when a question is sharpest.
+                  The professor opens over the exercise, so asking does not
+                  cost the place in the lesson. */}
+              {exercise && outcome.status !== 'correct' && (
+                <button
+                  type="button"
+                  onClick={() => setAsking(true)}
+                  className="text-fg hover:text-primary mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium underline-offset-4 hover:underline"
+                >
+                  <GraduationCap className="size-4" /> Запитати професора
+                </button>
+              )}
             </div>
           </div>
         </motion.div>
+      )}
+
+      {exercise && (
+        <Dialog open={asking} onOpenChange={setAsking}>
+          <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col p-0">
+            <DialogTitle className="border-line border-b px-5 py-4 text-base">
+              Професор про це завдання
+            </DialogTitle>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4">
+              <ProfessorPanel key={exercise.id} exercise={exercise} compact />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </AnimatePresence>
   )

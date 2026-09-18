@@ -13,6 +13,7 @@ import { LibraryPage, StoryPage } from '@/pages/Library'
 import { NotebookPage } from '@/pages/Notebook'
 import { Onboarding } from '@/pages/Onboarding'
 import { PlacementPage } from '@/pages/Placement'
+import { ProfessorPage } from '@/pages/Professor'
 import { QuizPage } from '@/pages/Quiz'
 import { ReferencePage } from '@/pages/Reference'
 import { ReviewPage } from '@/pages/Review'
@@ -116,6 +117,7 @@ export default function App() {
                 <Route path="/review" element={<ReviewPage />} />
                 <Route path="/vocabulary" element={<VocabularyPage />} />
                 <Route path="/reference" element={<ReferencePage />} />
+                <Route path="/professor" element={<ProfessorPage />} />
                 <Route path="/library" element={<LibraryPage />} />
                 <Route path="/story/:id" element={<StoryPage />} />
                 <Route path="/videos" element={<VideosPage />} />
