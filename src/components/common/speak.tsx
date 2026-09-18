@@ -4,7 +4,14 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { agree } from '@/lib/agreement'
 import { lookupWord, type Gloss } from '@/lib/gloss'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import { cancelSpeechBy, loadVoices, speak as speakRaw, speakSequence, wordsOf } from '@/lib/speech'
+import {
+  cancelSpeechBy,
+  loadVoices,
+  slowChunks,
+  speak as speakRaw,
+  speakSequence,
+  wordsOf,
+} from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -16,8 +23,9 @@ import { useSettings } from '@/store/settings'
 /**
  * The three ways a phrase can be heard.
  *
- * Normal is the voice at the learner's chosen speed. Slow is half that, for
- * hearing where one word ends and the next begins — French runs words
+ * Normal is the voice at the learner's chosen speed. Slow is the slow rate in
+ * short groups with pauses between them, for hearing where one word ends and
+ * the next begins — French runs words
  * together, and at full speed a beginner hears "vous avez" as one sound. Words
  * goes further and says each word on its own with a pause, which is the mode
  * for picking a phrase apart before trying to say it.
@@ -87,10 +95,36 @@ export function useSpeak(): SpeakController {
     [say],
   )
 
-  /** Deliberately slow — for hearing where the words join. */
+  /**
+   * Deliberately slow — for hearing where the words join.
+   *
+   * Short groups with a pause between them, at the slow rate. The rate alone
+   * does little on Apple voices (they clamp it); the pauses are what slow the
+   * phrase down. The highlight still follows word by word across the groups.
+   */
   const speakSlow = useCallback(
-    (text: string) => say(text, 'slow', { rate: slowSpeed }),
-    [say, slowSpeed],
+    (text: string) => {
+      const chunks = slowChunks(agree(text, gender))
+      if (!chunks.length) return
+      const starts: number[] = []
+      let n = 0
+      for (const c of chunks) {
+        starts.push(n)
+        n += wordsOf(c).length
+      }
+      setMode('slow')
+      setActiveWord(null)
+      void speakSequence(chunks, {
+        rate: slowSpeed,
+        gapMs: 260,
+        voiceURI: voiceURI ?? undefined,
+        voiceName: voiceName ?? undefined,
+        owner,
+        onPart: (i) => setActiveWord(starts[i]),
+        onWord: (part, word) => setActiveWord(starts[part] + word),
+      }).then(done)
+    },
+    [gender, slowSpeed, voiceURI, voiceName, owner, done],
   )
 
   /** One word at a time, each on its own, with room between them. */

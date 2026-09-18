@@ -659,3 +659,21 @@ describe('following the voice word by word', () => {
     expect(spoken.map((s) => s.text)).toEqual(['un', 'deux', 'bonjour'])
   })
 })
+
+describe('the slow reading', () => {
+  it('cuts a phrase into short groups that end at punctuation', async () => {
+    install([])
+    const { slowChunks } = await import('./speech')
+    expect(slowChunks('Je ne parle pas très bien français.')).toEqual([
+      'Je ne parle',
+      'pas très bien',
+      'français.',
+    ])
+    expect(slowChunks('Oui, je suis très fatiguée ce soir.')).toEqual([
+      'Oui,',
+      'je suis très',
+      'fatiguée ce soir.',
+    ])
+    expect(slowChunks('bonjour')).toEqual(['bonjour'])
+  })
+})

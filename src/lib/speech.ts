@@ -624,6 +624,31 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
 }
 
 /**
+ * A phrase cut into short groups, for the slow reading.
+ *
+ * Asking the engine for a low rate is not enough: the system voices on
+ * Apple devices clamp it, so 0.2 plays only a little slower than 1.0 —
+ * measured, not assumed. What makes speech genuinely easier to follow is
+ * the pauses: two or three words, a breath, two or three more. Groups end
+ * at punctuation where there is any, so a clause is never split mid-way.
+ */
+export function slowChunks(text: string, size = 3): string[] {
+  const words = speakable(text).split(/\s+/).filter(Boolean)
+  const out: string[] = []
+  let group: string[] = []
+  for (const w of words) {
+    group.push(w)
+    const clauseEnd = /[,;:.!?…]$/.test(w)
+    if (group.length >= size || clauseEnd) {
+      out.push(group.join(' '))
+      group = []
+    }
+  }
+  if (group.length) out.push(group.join(' '))
+  return out
+}
+
+/**
  * Say several things in turn, with a pause between them.
  *
  * Word-by-word reading and "play the whole dialogue" are the same operation
@@ -637,6 +662,8 @@ export async function speakSequence(
   opts: Omit<SpeakOptions, 'onEnd' | 'onWord' | 'partOfSequence'> & {
     gapMs?: number
     onPart?: (index: number) => void
+    /** A word starting, as (part index, word index within the part). */
+    onWord?: (part: number, word: number) => void
   } = {},
 ): Promise<void> {
   if (!supportsTTS() || !parts.length) return
@@ -652,6 +679,7 @@ export async function speakSequence(
       void speak(parts[i], {
         ...opts,
         partOfSequence: true,
+        onWord: opts.onWord ? (w) => opts.onWord!(i, w) : undefined,
         onEnd: () => {
           waiters.delete(resolve)
           resolve()
