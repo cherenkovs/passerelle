@@ -723,6 +723,24 @@ describe('pacing the slow reading', () => {
   })
 })
 
+describe('a lone short word is not dragged out', () => {
+  it('speaks it faster, and leaves everything else at the chosen rate', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak, paceFor } = await import('./speech')
+    // Measured: a lone "il" at 0.85 takes 430 ms, the "il" of "il est" 150.
+    expect(paceFor('il', 0.85)).toBeCloseTo(1.36)
+    expect(paceFor('ils', 0.85)).toBeCloseTo(1.36)
+    expect(paceFor('je', 1.2)).toBe(1.6)
+    expect(paceFor('bonjour', 0.85)).toBe(0.85)
+    expect(paceFor('il est', 0.85)).toBe(0.85)
+    expect(paceFor('toi ?', 0.35)).toBeCloseTo(0.56)
+    await speak('il', { rate: 0.85 })
+    expect(spoken[0].rate).toBeCloseTo(1.36)
+    await speak('il est', { rate: 0.85 })
+    expect(spoken[1].rate).toBeCloseTo(0.85)
+  })
+})
+
 describe('alternatives are said one at a time', () => {
   it('gives each form its own utterance, with the shared verb on both', async () => {
     install([voice('Aurélie', 'fr-FR')])

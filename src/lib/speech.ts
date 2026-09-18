@@ -552,7 +552,7 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
 
   const u = new SpeechSynthesisUtterance(speakable(text))
   u.lang = opts.lang ?? 'fr-FR'
-  u.rate = opts.rate ?? 0.92
+  u.rate = paceFor(u.text, opts.rate ?? 0.92)
   u.pitch = opts.pitch ?? 1
 
   const voice =
@@ -662,6 +662,28 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
       synth.resume()
     }, 9000)
   }
+}
+
+/**
+ * The rate a text is actually spoken at.
+ *
+ * A short word on its own — "il", "ils", "je" — is dragged out by the voice:
+ * measured on Aurélie, a lone "il" takes 430 ms where the same "il" inside
+ * "il est" takes about 150, the extra being a held, released l that the ear
+ * takes for a second syllable ("il-le"). Nothing written around the word
+ * changes that (measured: commas, stops, dashes, spaces). What does is the
+ * rate, which the engine honours on the fast side: at 1.6× the lone word is
+ * back near its in-sentence length and sounds like the word again.
+ *
+ * Only for a lone word of up to three letters; longer words are not dragged
+ * the same way, and a phrase never is.
+ */
+export function paceFor(spoken: string, rate: number): number {
+  const words = spoken.split(/\s+/).filter((w) => /\p{L}/u.test(w))
+  if (words.length !== 1) return rate
+  const letters = words[0].replace(/[^\p{L}]/gu, '')
+  if (letters.length > 3) return rate
+  return Math.min(rate * 1.6, 1.6)
 }
 
 /**
