@@ -227,7 +227,14 @@ export function SpeakControls({
       {showMain && (
         <button
           type="button"
-          onClick={() => ctl.toggle(text, 'normal')}
+          onClick={(e) => {
+            // These buttons live inside cards that are themselves clickable —
+            // a flashcard flips on tap. A tap on the speaker is not a tap on
+            // the card: letting it through flipped the card, which auto-played
+            // the word at normal speed over the slow reading just started.
+            e.stopPropagation()
+            ctl.toggle(text, 'normal')
+          }}
           aria-label={label ?? `Прослухати: ${text}`}
           aria-pressed={main}
           className={cn(
@@ -245,7 +252,10 @@ export function SpeakControls({
       {slow && (
         <button
           type="button"
-          onClick={() => ctl.toggle(text, 'slow')}
+          onClick={(e) => {
+            e.stopPropagation()
+            ctl.toggle(text, 'slow')
+          }}
           aria-label="Прослухати повільно"
           aria-pressed={ctl.mode === 'slow'}
           title="Повільно"
@@ -258,7 +268,10 @@ export function SpeakControls({
       {showWords && (
         <button
           type="button"
-          onClick={() => ctl.toggle(text, 'words')}
+          onClick={(e) => {
+            e.stopPropagation()
+            ctl.toggle(text, 'words')
+          }}
           aria-label="Прослухати по словах"
           aria-pressed={ctl.mode === 'words'}
           title="По словах"

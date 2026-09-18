@@ -353,11 +353,26 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
       <main className="flex flex-1 items-center justify-center px-4 py-8">
         <div className="w-full max-w-lg">
           <AnimatePresence mode="wait">
-            <motion.button
+            <motion.div
               key={`${card.id}-${flipped}`}
-              type="button"
+              // A div with a button role rather than a button: the speaker
+              // controls inside it are buttons, and a button cannot contain
+              // buttons — the browser lets it, badly.
+              role="button"
+              tabIndex={0}
               onClick={() => {
                 if (!flipped) {
+                  setFlipped(true)
+                  if (autoSpeak) speak(face.speak)
+                }
+              }}
+              onKeyDown={(e) => {
+                if (
+                  (e.key === 'Enter' || e.key === ' ') &&
+                  !flipped &&
+                  e.target === e.currentTarget
+                ) {
+                  e.preventDefault()
                   setFlipped(true)
                   if (autoSpeak) speak(face.speak)
                 }
@@ -424,7 +439,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
               ) : (
                 <p className="text-fg-subtle mt-8 text-[13px]">{face.hint}</p>
               )}
-            </motion.button>
+            </motion.div>
           </AnimatePresence>
         </div>
       </main>

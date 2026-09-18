@@ -125,25 +125,20 @@ describe('speakable', () => {
     expect(speakable('au / à la / aux')).toBe('au. à la. aux')
   })
 
-  it('gives a shared verb to each pronoun in a conjugation row', async () => {
-    const { speakable } = await import('./speech')
-    // "il / elle a" means *il a / elle a*. Stopping at the slash left a bare
-    // "il" — the one row of the avoir table with no verb in it.
-    expect(speakable('il / elle a')).toBe('il a. elle a')
-    expect(speakable('ils / elles ont')).toBe('ils ont. elles ont')
-    expect(speakable('il / elle est')).toBe('il est. elle est')
-    // Nothing to share — both alternatives are whole.
-    expect(speakable('nous / vous')).toBe('nous. vous')
+  it('reads a conjugation row exactly as written', async () => {
+    const { speakable, alternativesOf } = await import('./speech')
+    // What is on the screen, no more: "il", then "elle a". Handing the verb
+    // to each pronoun sounded like a mistake to the learner who saw one thing
+    // and heard another.
+    expect(alternativesOf('il / elle a')).toEqual(['il', 'elle a'])
+    expect(alternativesOf('ils / elles ont')).toEqual(['ils', 'elles ont'])
+    expect(alternativesOf("qu'il / elle prenne")).toEqual(["qu'il", 'elle prenne'])
     expect(speakable('il / elle')).toBe('il. elle')
-    // The conjunction written once belongs to both pronouns.
-    expect(speakable("qu'il / elle prenne")).toBe("qu'il prenne. qu'elle prenne")
-    expect(speakable('que nous / vous parlions')).toBe('que nous parlions. que vous parlions')
+    expect(speakable('nous / vous')).toBe('nous. vous')
   })
 
-  it('never borrows a tail across unrelated phrases', async () => {
+  it('never invents text across unrelated phrases', async () => {
     const { speakable } = await import('./speech')
-    // The trap: "Par exemple," is two words, but "Ainsi," is no pronoun and
-    // shares nothing with it. Borrowing would invent "Ainsi, exemple,".
     expect(speakable('Ainsi, / Par exemple,')).toBe('Ainsi. Par exemple')
     expect(speakable('il fait chaud / froid / beau')).toBe('il fait chaud. froid. beau')
     expect(speakable('Bien à vous, / Bonne journée,')).toBe('Bien à vous. Bonne journée')
@@ -734,12 +729,12 @@ describe('alternatives are said one at a time', () => {
     const { speak } = await import('./speech')
     const run = speak('il / elle a')
     await new Promise((r) => setTimeout(r, 0))
-    expect(spoken.map((s) => s.text)).toEqual(['il a'])
+    expect(spoken.map((s) => s.text)).toEqual(['il'])
     lastUtterance!.onend?.(new Event('end') as never)
     await new Promise((r) => setTimeout(r, 400))
     lastUtterance!.onend?.(new Event('end') as never)
     await run
-    expect(spoken.map((s) => s.text)).toEqual(['il a', 'elle a'])
+    expect(spoken.map((s) => s.text)).toEqual(['il', 'elle a'])
   })
 
   it('leaves a plain phrase as one utterance', async () => {
@@ -748,6 +743,6 @@ describe('alternatives are said one at a time', () => {
     await speak('Je ne parle pas très bien français.')
     expect(spoken).toHaveLength(1)
     expect(alternativesOf('content / contente')).toEqual(['content', 'contente'])
-    expect(alternativesOf("qu'il / elle prenne")).toEqual(["qu'il prenne", "qu'elle prenne"])
+    expect(alternativesOf('au / à la / aux')).toEqual(['au', 'à la', 'aux'])
   })
 })

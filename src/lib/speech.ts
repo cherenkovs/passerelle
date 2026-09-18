@@ -439,90 +439,32 @@ export function speakable(text: string) {
 }
 
 /** French subject pronouns — a closed class, so this set is complete. */
-const SUBJECT_PRONOUNS = new Set([
-  'je',
-  "j'",
-  'tu',
-  'il',
-  'elle',
-  'on',
-  'nous',
-  'vous',
-  'ils',
-  'elles',
-])
-
-/**
- * Read every alternative, not just the first.
- *
- * This used to stop at the slash, on the grounds that "content slash contente"
- * teaches nobody anything. True of the symbol — but the remedy threw away half
- * the content along with it. Hearing "content, contente" *is* the lesson: the
- * silent final consonant comes back in the feminine. So the slash becomes a
- * pause and both forms are spoken.
- *
- * One case needs more than a pause. "il / elle a" is a row of a conjugation
- * table and means *il a / elle a* — the verb belongs to both pronouns. Stopping
- * at the slash left a bare "il" with no verb at all, which is the one row of
- * the table you could not hear. So a trailing form is handed to each pronoun in
- * turn: "il a, elle a".
- *
- * That sharing applies only when every alternative but the last is a subject
- * pronoun. Otherwise the slash is separating whole phrases with nothing in
- * common, and borrowing a tail would invent text — "Ainsi, / Par exemple,"
- * must not become "Ainsi, exemple,".
- */
 /** Marks the boundary between alternatives; never appears in real text. */
 const ALT = '\u0001'
 
 /**
- * The alternatives of a slashed string, each whole.
+ * The alternatives of a slashed string, exactly as written.
  *
- * Every punctuation mark was tried as a pause between two monosyllables —
- * comma, semicolon, dash, ellipsis, full stop — and measured: on Apple voices
- * none of them produces one. "il. elle." plays in 484 ms, barely more than
- * "il." alone at 443. The only pause the engine respects is the end of an
- * utterance, so `speak` gives each alternative its own.
+ * "il / elle est" is read as "il", then "elle est" — what is on the screen,
+ * no more. An earlier version handed the verb to each pronoun ("il est,
+ * elle est"), which was clever and sounded like a mistake: the learner saw
+ * one thing and heard another. Each alternative is its own utterance, since
+ * no punctuation makes the engine pause between short words (measured).
  */
 export function alternativesOf(text: string): string[] {
   return expandAlternatives(text)
     .split(ALT)
-    .map((p) => p.trim())
+    .map((p) => p.trim().replace(/[,;:]+$/, ''))
     .filter(Boolean)
 }
 
 function expandAlternatives(text: string) {
-  const parts = text.split(' / ')
-  if (parts.length < 2) return text
-
-  const SEP = ALT
-
-  // "qu'il / elle prenne": the conjunction is written once, on the first
-  // pronoun, and belongs to every one — "qu'il prenne. qu'elle prenne".
-  const conj = parts[0].match(/^(qu[’']|que\s)/i)?.[1] ?? ''
-  const bare = (p: string) =>
-    p
-      .replace(/^(qu[’']|que\s)/i, '')
-      .toLowerCase()
-      .replace(/’/g, "'")
-
-  const last = parts[parts.length - 1].split(' ')
-  const leading = parts.slice(0, -1)
-  const sharesTail = last.length > 1 && leading.every((p) => SUBJECT_PRONOUNS.has(bare(p)))
-
-  // A comma that ended an alternative would now sit against the stop.
-  const trimmed = parts.map((p) => p.replace(/[,;:]+$/, ''))
-  if (!sharesTail) return trimmed.join(SEP)
-
-  const tail = last.slice(1).join(' ')
-  const withConj = (pronoun: string) => {
-    if (!conj) return pronoun
-    if (/^(qu[’']|que\s)/i.test(pronoun)) return pronoun
-    // "que" elides before a vowel: qu'il, qu'elle, qu'on — que nous.
-    return /^[aeiouy]/i.test(pronoun) ? `qu'${pronoun}` : `que ${pronoun}`
-  }
-  const lastPronoun = withConj(last[0])
-  return [...leading.map((p) => `${withConj(p)} ${tail}`), `${lastPronoun} ${tail}`].join(SEP)
+  // A comma that ended an alternative would sit against the stop that
+  // follows it in the displayed form: "Ainsi,." — so it is dropped.
+  return text
+    .split(' / ')
+    .map((p) => p.trim().replace(/[,;:]+$/, ''))
+    .join(ALT)
 }
 
 /** Anything outside the Cyrillic alphabet, which in this app means French. */
