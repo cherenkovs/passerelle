@@ -46,7 +46,7 @@ export function WritingPage() {
             <Link
               key={task.id}
               to={`/writing/${task.id}`}
-              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-lift)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="text-3xl">{task.emoji}</span>
@@ -154,9 +154,7 @@ export function WritingTaskPage() {
 
       {/* Brief */}
       <Card className="p-5">
-        <h2 className="text-fg-subtle text-[12px] font-semibold tracking-wider uppercase">
-          Що має бути в тексті
-        </h2>
+        <h2 className="text-fg-subtle text-[12.5px] font-medium">Що має бути в тексті</h2>
         <ul className="mt-3 space-y-2">
           {task.requirements.map((r) => (
             <li key={r} className="flex items-start gap-2.5 text-[14px] leading-snug">
@@ -169,9 +167,7 @@ export function WritingTaskPage() {
 
       {/* Useful phrases */}
       <Card className="p-5">
-        <h2 className="text-fg-subtle text-[12px] font-semibold tracking-wider uppercase">
-          Корисні звороти
-        </h2>
+        <h2 className="text-fg-subtle text-[12.5px] font-medium">Корисні звороти</h2>
         <div className="mt-3 space-y-2">
           {task.phrases.map((p) => (
             <div key={p.fr} className="flex items-start gap-3">
@@ -195,7 +191,7 @@ export function WritingTaskPage() {
           </label>
           <span
             className={cn(
-              'font-mono text-[12px] tabular-nums',
+              'text-[12px] tabular-nums',
               report.length === 'ok' ? 'text-success' : 'text-fg-subtle',
             )}
           >
@@ -250,7 +246,7 @@ export function WritingTaskPage() {
               <h2 className="font-display text-lg font-semibold tracking-tight">
                 Формальна перевірка
               </h2>
-              <span className="text-fg-subtle font-mono text-[12px] tabular-nums">
+              <span className="text-fg-subtle text-[12px] tabular-nums">
                 {report.passed}/{report.total}
               </span>
             </div>

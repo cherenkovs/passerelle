@@ -366,9 +366,7 @@ export function Onboarding() {
                 <ArrowRight className="text-primary size-5 shrink-0" />
               </button>
 
-              <p className="text-fg-subtle mt-6 text-[12px] font-semibold tracking-wider uppercase">
-                або обери сам
-              </p>
+              <p className="text-fg-subtle mt-6 text-[12.5px] font-medium">або обери сам</p>
 
               <div className="mt-8 space-y-3">
                 {COURSES.map((course) => {

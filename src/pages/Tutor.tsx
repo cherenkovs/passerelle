@@ -50,7 +50,7 @@ export function TutorPage() {
             <Link
               key={s.id}
               to={`/tutor/${s.id}`}
-              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-lift)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="text-3xl">{s.emoji}</span>
@@ -70,9 +70,7 @@ export function TutorPage() {
               </p>
 
               <div className="border-line mt-4 border-t pt-3">
-                <div className="text-fg-subtle text-[11px] font-semibold tracking-wider uppercase">
-                  Мета
-                </div>
+                <div className="text-fg-subtle text-[12px] font-medium">Мета</div>
                 <p className="text-fg-muted mt-1 text-[13px] text-pretty">{s.goal}</p>
               </div>
 
@@ -229,7 +227,7 @@ export function ScenarioPage() {
               className="mt-1.5 h-1.5"
             />
           </div>
-          <span className="text-fg-subtle shrink-0 font-mono text-[12px] tabular-nums">
+          <span className="text-fg-subtle shrink-0 text-[12px] tabular-nums">
             {Math.min(index + 1, scenario.turns.length)}/{scenario.turns.length}
           </span>
         </div>

@@ -199,7 +199,7 @@ function Certificate({
           <div className="relative">
             <Logo size={40} className="mx-auto" />
 
-            <div className="text-fg-subtle mt-6 text-[11px] font-semibold tracking-[0.2em] uppercase">
+            <div className="text-fg-subtle mt-6 text-[12px] font-medium">
               Сертифікат про завершення
             </div>
 

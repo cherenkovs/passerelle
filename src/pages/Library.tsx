@@ -45,7 +45,7 @@ export function LibraryPage() {
             <Link
               key={story.id}
               to={`/story/${story.id}`}
-              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+              className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-lift)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="text-3xl">{story.emoji}</span>

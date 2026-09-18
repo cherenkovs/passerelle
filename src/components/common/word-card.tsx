@@ -82,7 +82,7 @@ export function WordCard({
               <Tooltip
                 content={`№${word.rank} за частотністю — приблизна позиція серед 1000 найуживаніших слів`}
               >
-                <span className="text-fg-subtle cursor-help font-mono text-[10px] tabular-nums">
+                <span className="text-fg-subtle cursor-help text-[11px] tabular-nums">
                   №{word.rank}
                 </span>
               </Tooltip>

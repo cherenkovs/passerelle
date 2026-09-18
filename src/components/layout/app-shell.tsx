@@ -146,9 +146,7 @@ function Sidebar({ className, children }: { className?: string; children?: React
       <nav className="flex-1 overflow-y-auto px-3 pb-4">
         {GROUPS.map((group) => (
           <div key={group.title} className="mb-6">
-            <div className="text-fg-subtle mb-2 px-3 text-[11px] font-semibold tracking-wider uppercase">
-              {group.title}
-            </div>
+            <div className="text-fg-subtle mb-2 px-3 text-[12px] font-medium">{group.title}</div>
             <ul className="space-y-0.5">
               {group.items.map((item) => (
                 <li key={item.to}>
@@ -309,7 +307,7 @@ function ProfileMenu() {
           className="border-line bg-surface animate-pop z-50 w-60 rounded-xl border p-1.5 shadow-[var(--shadow-pop)]"
         >
           <div className="px-2.5 py-2">
-            <div className="text-fg-subtle text-[11px] tracking-wider uppercase">Хто вчиться</div>
+            <div className="text-fg-subtle text-[12px]">Хто вчиться</div>
           </div>
 
           {profiles.map((p) => (

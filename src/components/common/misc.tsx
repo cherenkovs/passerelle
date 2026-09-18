@@ -53,11 +53,7 @@ export function PageHeader({
   return (
     <header className={cn('mb-8 flex flex-wrap items-end justify-between gap-4', className)}>
       <div className="min-w-0">
-        {eyebrow && (
-          <div className="text-accent mb-2 text-[13px] font-medium tracking-wide uppercase">
-            {eyebrow}
-          </div>
-        )}
+        {eyebrow && <div className="text-accent mb-2 text-[13.5px] font-medium">{eyebrow}</div>}
         <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
           {title}
         </h1>
@@ -130,12 +126,7 @@ export function StatTile({
     success: 'bg-success-soft text-success',
   }
   return (
-    <div
-      className={cn(
-        'border-line bg-surface rounded-2xl border p-5 shadow-[var(--shadow-card)]',
-        className,
-      )}
-    >
+    <div className={cn('border-line bg-surface rounded-2xl border p-5', className)}>
       <div className="flex items-center gap-2.5">
         {Icon && (
           <span className={cn('grid size-8 place-items-center rounded-lg', tones[tone])}>

@@ -128,9 +128,7 @@ function ListeningPanel({
 
 function Prompt({ children }: { children?: string }) {
   if (!children) return null
-  return (
-    <p className="text-accent mb-5 text-[13px] font-medium tracking-wide uppercase">{children}</p>
-  )
+  return <p className="text-accent mb-5 text-[13.5px] font-medium">{children}</p>
 }
 
 function Question({ children, className }: { children: React.ReactNode; className?: string }) {

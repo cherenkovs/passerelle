@@ -118,7 +118,7 @@ export function ReviewPage() {
             <button
               type="button"
               onClick={() => setMode('cards')}
-              className="group border-primary bg-primary-soft rounded-2xl border-2 p-5 text-left transition-all hover:-translate-y-0.5"
+              className="group border-primary bg-primary-soft rounded-2xl border-2 p-5 text-left transition-all"
             >
               <Layers className="text-primary-soft-fg size-6" />
               <div className="font-display mt-3 text-base font-semibold">Картки</div>
@@ -130,7 +130,7 @@ export function ReviewPage() {
             <button
               type="button"
               onClick={() => setMode('drill')}
-              className="group border-line bg-surface hover:border-line-strong rounded-2xl border-2 p-5 text-left transition-all hover:-translate-y-0.5"
+              className="group border-line bg-surface hover:border-line-strong rounded-2xl border-2 p-5 text-left transition-all"
             >
               <Keyboard className="text-fg-muted size-6" />
               <div className="font-display mt-3 text-base font-semibold">Ввід з клавіатури</div>
@@ -270,9 +270,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
             value={(reviewed / Math.max(1, reviewed + remaining)) * 100}
             className="flex-1"
           />
-          <span className="text-fg-subtle font-mono text-[12px] tabular-nums">
-            {remaining} лишилось
-          </span>
+          <span className="text-fg-subtle text-[12px] tabular-nums">{remaining} лишилось</span>
         </div>
       </header>
 
@@ -299,7 +297,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
                   : 'border-line-strong hover:border-primary cursor-pointer',
               )}
             >
-              <div className="text-fg-subtle mb-4 text-[11px] font-semibold tracking-wider uppercase">
+              <div className="text-fg-subtle mb-4 text-[12px] font-medium">
                 {flipped ? 'Переклад' : 'Французькою'}
               </div>
 

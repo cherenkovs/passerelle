@@ -190,7 +190,7 @@ export function PlacementPage() {
               <div className="bg-success-soft text-success mx-auto mb-5 grid size-16 place-items-center rounded-2xl">
                 <Target className="size-8" />
               </div>
-              <p className="text-fg-subtle text-[12px] font-semibold tracking-wider uppercase">
+              <p className="text-fg-subtle text-[12.5px] font-medium">
                 {result.beyond ? 'Ти пройшов усе' : 'Твоя стартова точка'}
               </p>
               <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight">
@@ -291,7 +291,7 @@ export function PlacementPage() {
           <div className="min-w-0 flex-1">
             <Progress value={placementProgress(state, MODULE_COUNT) * 100} />
           </div>
-          <span className="text-fg-subtle shrink-0 font-mono text-[12px] tabular-nums">
+          <span className="text-fg-subtle shrink-0 text-[12px] tabular-nums">
             {asked + 1}/{MAX_QUESTIONS}
           </span>
         </div>

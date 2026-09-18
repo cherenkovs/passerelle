@@ -98,7 +98,7 @@ function Lesson({ id }: { id: string }) {
             <div className="text-fg-muted truncate text-[12px] font-medium">{lesson.title}</div>
             <Progress value={((step + 1) / total) * 100} className="mt-1.5 h-1.5" />
           </div>
-          <span className="text-fg-subtle shrink-0 font-mono text-[12px] tabular-nums">
+          <span className="text-fg-subtle shrink-0 text-[12px] tabular-nums">
             {step + 1}/{total}
           </span>
         </div>
@@ -423,11 +423,7 @@ function DialogueStep({ step }: { step: Extract<LessonStep, { kind: 'dialogue' }
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-accent mb-2 text-[12px] font-semibold tracking-wider uppercase">
-      {children}
-    </div>
-  )
+  return <div className="text-accent mb-2 text-[12.5px] font-medium">{children}</div>
 }
 
 function Title({ children }: { children: React.ReactNode }) {
@@ -489,7 +485,7 @@ export function Table({ table, className }: { table: GrammarTable; className?: s
               {table.head.map((h) => (
                 <th
                   key={h}
-                  className="text-fg-subtle px-4 py-2.5 text-[12px] font-semibold tracking-wider whitespace-nowrap uppercase"
+                  className="text-fg-subtle px-4 py-2.5 text-[12.5px] font-medium whitespace-nowrap"
                 >
                   {h}
                 </th>

@@ -75,7 +75,7 @@ export function ProfilesCard() {
                   </span>
                 )}
               </div>
-              <div className="text-fg-muted mt-0.5 font-mono text-[12px] tabular-nums">
+              <div className="text-fg-muted mt-0.5 text-[12px] tabular-nums">
                 {p.xp} XP · {lessonsDone(p)} уроків · з{' '}
                 {new Date(p.createdAt).toLocaleDateString('uk-UA')}
               </div>

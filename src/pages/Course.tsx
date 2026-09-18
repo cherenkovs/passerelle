@@ -144,7 +144,7 @@ export function CoursePage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-fg-subtle text-[11px] font-semibold tracking-wider uppercase">
+                      <span className="text-fg-subtle text-[12px] font-medium">
                         Модуль {mi + 1}
                       </span>
                       {complete && (
@@ -168,7 +168,7 @@ export function CoursePage() {
                     {unlocked && (
                       <div className="mt-3 flex items-center gap-3">
                         <Progress value={mp.pct} className="h-1.5 max-w-[220px]" />
-                        <span className="text-fg-subtle font-mono text-[11px] tabular-nums">
+                        <span className="text-fg-subtle text-[11.5px] tabular-nums">
                           {mp.done}/{mp.total}
                         </span>
                       </div>
@@ -249,7 +249,7 @@ export function CoursePage() {
                           {passed
                             ? `Тест складено — ${profile.quizzes[module.id]?.bestScore}%. Пройти ще раз`
                             : complete
-                              ? `Тест модуля · ${module.quiz.length} ${pluralUk(module.quiz.length, ['питання', 'питання', 'питань'])}`
+                              ? `Тест модуля (${module.quiz.length} ${pluralUk(module.quiz.length, ['питання', 'питання', 'питань'])})`
                               : 'Тест відкриється після всіх уроків'}
                         </Button>
                       </li>

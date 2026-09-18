@@ -74,7 +74,7 @@ export function Dashboard() {
       {/* Hero */}
       <section>
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-accent text-[13px] font-medium tracking-wide uppercase">
+          <span className="text-accent text-[13.5px] font-medium">
             {greeting()}, {profile.name}
           </span>
         </div>
@@ -112,19 +112,24 @@ export function Dashboard() {
                   {next.lesson.title}
                 </h2>
                 <p className="text-fg-muted mt-1.5 text-sm">
-                  Модуль {next.moduleIndex + 1} · {next.module.title}
-                  {next.lesson.subtitle && ` · ${next.lesson.subtitle}`}
+                  Модуль {next.moduleIndex + 1}, {next.module.title}
+                  {next.lesson.subtitle && <span className="block">{next.lesson.subtitle}</span>}
                 </p>
-                <p className="text-fg-subtle mt-3 text-[13px]">
-                  {next.lesson.minutes} хв · {next.lesson.exercises.length}{' '}
-                  {pluralUk(next.lesson.exercises.length, ['вправа', 'вправи', 'вправ'])} ·{' '}
-                  {next.lesson.newWords.length}{' '}
-                  {pluralUk(next.lesson.newWords.length, [
-                    'нове слово',
-                    'нові слова',
-                    'нових слів',
-                  ])}
-                </p>
+                <ul className="text-fg-subtle mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+                  <li>{next.lesson.minutes} хв</li>
+                  <li>
+                    {next.lesson.exercises.length}{' '}
+                    {pluralUk(next.lesson.exercises.length, ['вправа', 'вправи', 'вправ'])}
+                  </li>
+                  <li>
+                    {next.lesson.newWords.length}{' '}
+                    {pluralUk(next.lesson.newWords.length, [
+                      'нове слово',
+                      'нові слова',
+                      'нових слів',
+                    ])}
+                  </li>
+                </ul>
               </>
             )}
 
@@ -175,10 +180,10 @@ export function Dashboard() {
             <div className="border-line mt-6 border-t pt-5">
               <div className="mb-2 flex items-center justify-between text-[13px]">
                 <span className="text-fg-muted">
-                  {course.title} · {progress.done} з {progress.total}{' '}
+                  {course.title}: {progress.done} з {progress.total}{' '}
                   {pluralUk(progress.total, ['урок', 'уроки', 'уроків'])}
                 </span>
-                <span className="font-mono font-medium tabular-nums">{progress.pct}%</span>
+                <span className="font-medium tabular-nums">{progress.pct}%</span>
               </div>
               <Progress value={progress.pct} />
             </div>
@@ -320,7 +325,7 @@ function PracticeCard({
   return (
     <Link
       to={to}
-      className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-5 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+      className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-5 transition-colors"
     >
       <span className={cn('grid size-10 place-items-center rounded-xl', tones[tone])}>
         <Icon className="size-5" />

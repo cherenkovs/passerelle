@@ -67,7 +67,7 @@ export function VideosPage() {
               <Link
                 key={v.id}
                 to={`/video/${v.id}`}
-                className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
+                className="group border-line bg-surface hover:border-line-strong rounded-2xl border p-6 shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-lift)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-3xl">{v.emoji}</span>
@@ -423,7 +423,7 @@ export function VideoPage() {
               <button
                 type="button"
                 onClick={() => onLine(i)}
-                className="text-fg-subtle hover:text-primary mt-0.5 shrink-0 font-mono text-[11px] tabular-nums"
+                className="text-fg-subtle hover:text-primary mt-0.5 shrink-0 text-[11.5px] tabular-nums"
                 title={youtubeId ? 'Перемотати сюди' : 'Прослухати рядок'}
               >
                 {formatDuration(line.t)}

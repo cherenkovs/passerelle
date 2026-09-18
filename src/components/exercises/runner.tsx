@@ -299,7 +299,7 @@ export function ExerciseRunner({
           <div className="min-w-0 flex-1">
             <Progress value={(answeredCount / total) * 100} />
           </div>
-          <span className="text-fg-subtle shrink-0 font-mono text-[12px] tabular-nums">
+          <span className="text-fg-subtle shrink-0 text-[12px] tabular-nums">
             {Math.min(index + 1, total)}/{total}
           </span>
         </div>
