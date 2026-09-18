@@ -237,22 +237,6 @@ export function markVoiceBroken(voiceURI: string) {
 }
 
 /**
- * The "slow" button is relative to the learner's own setting: someone who has
- * already slowed the main voice down expects slow to be slower still, not to
- * jump back up to a fixed rate.
- *
- * The floor sits below the speed slider's own minimum on purpose. With both at
- * 0.4, a learner who had dragged the slider all the way down and then pressed
- * "slow" got exactly the rate they already had — the button silently did
- * nothing for the people most likely to need it.
- */
-export const SLOW_FLOOR = 0.3
-
-export function slowRate(rate: number) {
-  return Math.min(Math.max(rate * 0.5, SLOW_FLOOR), 0.6)
-}
-
-/**
  * Strip what a browser adds to a voice's name, leaving the voice itself.
  *
  * The same voice is reported differently depending on who is asking: Chrome on

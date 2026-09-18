@@ -4,14 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { agree } from '@/lib/agreement'
 import { lookupWord, type Gloss } from '@/lib/gloss'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import {
-  cancelSpeechBy,
-  loadVoices,
-  slowRate,
-  speak as speakRaw,
-  speakSequence,
-  wordsOf,
-} from '@/lib/speech'
+import { cancelSpeechBy, loadVoices, speak as speakRaw, speakSequence, wordsOf } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -46,6 +39,7 @@ export type SpeakController = {
 
 export function useSpeak(): SpeakController {
   const rate = useSettings((s) => s.rate)
+  const slowSpeed = useSettings((s) => s.slowSpeed)
   const voiceURI = useSettings((s) => s.voiceURI)
   const voiceName = useSettings((s) => s.voiceName)
   const gender = useGender()
@@ -95,8 +89,8 @@ export function useSpeak(): SpeakController {
 
   /** Deliberately slow — for hearing where the words join. */
   const speakSlow = useCallback(
-    (text: string) => say(text, 'slow', { rate: slowRate(rate) }),
-    [say, rate],
+    (text: string) => say(text, 'slow', { rate: slowSpeed }),
+    [say, slowSpeed],
   )
 
   /** One word at a time, each on its own, with room between them. */

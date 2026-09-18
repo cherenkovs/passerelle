@@ -336,33 +336,6 @@ describe('speak', () => {
  * Rate
  * ------------------------------------------------------------------ */
 
-describe('slowRate', () => {
-  it('is half the chosen rate, so slow is always slower', async () => {
-    const { slowRate } = await import('./speech')
-    expect(slowRate(0.85)).toBeCloseTo(0.425)
-    expect(slowRate(1.2)).toBeCloseTo(0.6)
-  })
-
-  it('never drops below the point where voices start to warble', async () => {
-    const { slowRate, SLOW_FLOOR } = await import('./speech')
-    expect(slowRate(0.1)).toBe(SLOW_FLOOR)
-  })
-
-  it('still slows down at the slider minimum', async () => {
-    // Floor and slider minimum used to be the same number, so "slow" was a
-    // no-op for exactly the learners who had already asked for slow.
-    const { slowRate } = await import('./speech')
-    expect(slowRate(0.4)).toBeLessThan(0.4)
-  })
-
-  it('stays audibly slower than any normal rate', async () => {
-    const { slowRate } = await import('./speech')
-    for (const r of [0.4, 0.6, 0.85, 1.0, 1.2]) {
-      expect(slowRate(r)).toBeLessThan(r)
-    }
-  })
-})
-
 describe('frenchIn', () => {
   it('pulls the French out of a Ukrainian explanation', async () => {
     const { frenchIn } = await import('./speech')

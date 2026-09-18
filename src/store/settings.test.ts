@@ -11,6 +11,7 @@ beforeEach(() => {
     voiceURI: null,
     voiceName: null,
     rate: 0.85,
+    slowSpeed: 0.35,
     autoSpeak: true,
     dailyGoal: 60,
     soundEffects: true,

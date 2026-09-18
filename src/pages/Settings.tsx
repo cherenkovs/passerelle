@@ -13,7 +13,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader, SectionTitle } from '@/components/common/misc'
-import { useSpeak } from '@/components/common/speak'
+import { SpeakButton, useSpeak } from '@/components/common/speak'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -43,7 +43,6 @@ import {
   onVoicesChanged,
   refreshVoices,
   resolveVoice,
-  slowRate,
   supportsSTT,
   supportsTTS,
   voiceLabel,
@@ -339,7 +338,7 @@ export function SettingsPage() {
 
               <SettingRow
                 label="Швидкість мовлення"
-                description={`Зараз ${settings.rate.toFixed(2)}×, кнопка «повільно» — ${slowRate(settings.rate).toFixed(2)}×. Для початківців корисно повільніше.`}
+                description={`Зараз ${settings.rate.toFixed(2)}×. Для початківців корисно повільніше.`}
               >
                 <Slider
                   value={[settings.rate]}
@@ -349,6 +348,23 @@ export function SettingsPage() {
                   onValueChange={([v]) => settings.set('rate', v)}
                   className="w-40"
                 />
+              </SettingRow>
+
+              <SettingRow
+                label="Повільна швидкість"
+                description={`Кнопка з черепахою: зараз ${settings.slowSpeed.toFixed(2)}×. Настільки повільно, щоб чути, де одне слово закінчується, а інше починається.`}
+              >
+                <div className="flex items-center gap-2">
+                  <Slider
+                    value={[settings.slowSpeed]}
+                    min={0.2}
+                    max={0.7}
+                    step={0.02}
+                    onValueChange={([v]) => settings.set('slowSpeed', v)}
+                    className="w-40"
+                  />
+                  <SpeakButton text="Je ne parle pas très bien français." size="sm" words={false} />
+                </div>
               </SettingRow>
 
               <SettingRow

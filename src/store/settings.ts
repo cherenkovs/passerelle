@@ -16,6 +16,14 @@ type SettingsState = {
   voiceName: string | null
   /** Playback rate, 0.4 – 1.2. Learners benefit from slightly slow speech. */
   rate: number
+  /**
+   * The rate behind the slow button, 0.2 – 0.7.
+   *
+   * Its own setting rather than a fraction of the main one: what "slow" needs
+   * to be depends on the ear, not on the normal speed, and a beginner wants
+   * it a good deal slower than half.
+   */
+  slowSpeed: number
   /** Speak French automatically when an exercise appears. */
   autoSpeak: boolean
   /** Daily XP target used by the ring on the dashboard. */
@@ -46,6 +54,7 @@ const SYNCED_KEYS = [
   'voiceName',
   'theme',
   'rate',
+  'slowSpeed',
   'autoSpeak',
   'dailyGoal',
   'soundEffects',
@@ -104,6 +113,7 @@ export const useSettings = create<SettingsState>()(((set, get) => ({
   voiceURI: null,
   voiceName: null,
   rate: 0.85,
+  slowSpeed: 0.35,
   autoSpeak: true,
   dailyGoal: 60,
   soundEffects: true,
