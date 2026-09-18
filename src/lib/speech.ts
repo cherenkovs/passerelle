@@ -746,6 +746,14 @@ export function slowChunks(text: string, size = 3): string[] {
   const out: string[] = []
   let group: string[] = []
   for (const w of words) {
+    // French spaces its question and exclamation marks — "et toi ?" — so a
+    // mark can arrive as a token of its own. Left alone it became its own
+    // utterance, and the voice read it out: "point d'interrogation".
+    if (!/[\p{L}\p{N}]/u.test(w)) {
+      if (group.length) group[group.length - 1] += ` ${w}`
+      else if (out.length) out[out.length - 1] += ` ${w}`
+      continue
+    }
     group.push(w)
     const clauseEnd = /[,;:.!?…]$/.test(w)
     if (group.length >= size || clauseEnd) {

@@ -706,6 +706,11 @@ describe('pacing the slow reading', () => {
     const { slowGroups } = await import('./speech')
     expect(slowGroups('Tu parles français ?')).toEqual(['Tu parles', 'français ?'])
     expect(slowGroups('au revoir')).toEqual(['au', 'revoir'])
+    // A spaced question mark belongs to the word before it, never on its own
+    // — on its own the voice reads it out as "point d'interrogation".
+    expect(slowGroups('et toi ?')).toEqual(['et', 'toi ?'])
+    expect(slowGroups('Ça va ?')).toEqual(['Ça', 'va ?'])
+    expect(slowGroups('Oui !')).toEqual(['Oui !'])
     expect(slowGroups('bonjour')).toEqual(['bonjour'])
     expect(slowGroups('Je ne parle pas très bien français.')).toEqual([
       'Je ne parle',
