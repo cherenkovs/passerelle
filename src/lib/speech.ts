@@ -548,7 +548,7 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   // Barge-in: a new utterance always replaces the old one.
   window.speechSynthesis.cancel()
 
-  const u = new SpeechSynthesisUtterance(speakable(text))
+  const u = new SpeechSynthesisUtterance(rounded(speakable(text)))
   u.lang = opts.lang ?? 'fr-FR'
   u.rate = opts.rate ?? 0.92
   u.pitch = opts.pitch ?? 1
@@ -621,6 +621,46 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
     window.speechSynthesis.pause()
     window.speechSynthesis.resume()
   }, 9000)
+}
+
+/**
+ * A full stop where there was none.
+ *
+ * A word said on its own — "Je", "à" — ends with the engine cutting the
+ * last sound short, as if the recording stopped a moment early; it is most
+ * audible on the shortest words, which is exactly what the tap-to-hear and
+ * word-by-word readings play. Terminal punctuation makes the voice finish
+ * the sound and fall, the way a spoken word ends.
+ */
+export function rounded(text: string): string {
+  const t = text.trim()
+  if (!t) return t
+  return /[.!?…»"]$/.test(t) ? t : `${t}.`
+}
+
+/**
+ * The slow reading as one utterance.
+ *
+ * Earlier this played the groups as separate utterances, which added the
+ * engine's start-up to every group and clipped the end of each one. One
+ * utterance with a comma between groups gives the same breaths from the
+ * voice's own phrasing, with nothing cut.
+ */
+export function slowText(text: string, size = 3): string {
+  return slowChunks(text, size)
+    .map((c, i, all) => (i < all.length - 1 && !/[,;:.!?…]$/.test(c) ? `${c},` : c))
+    .join(' ')
+}
+
+/**
+ * The word-by-word reading as one utterance: each word ends the sentence,
+ * so the voice says it whole, pauses, and starts the next.
+ */
+export function wordByWordText(text: string): string {
+  return wordsOf(text)
+    .map((w) => w.replace(/[,;:]+$/, ''))
+    .map((w) => (/[.!?…]$/.test(w) ? w : `${w}.`))
+    .join(' ')
 }
 
 /**

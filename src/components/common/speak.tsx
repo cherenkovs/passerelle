@@ -7,9 +7,9 @@ import { parseEmphasis, type Span } from '@/lib/emphasis'
 import {
   cancelSpeechBy,
   loadVoices,
-  slowChunks,
+  slowText,
   speak as speakRaw,
-  speakSequence,
+  wordByWordText,
   wordsOf,
 } from '@/lib/speech'
 import { cn } from '@/lib/utils'
@@ -103,49 +103,19 @@ export function useSpeak(): SpeakController {
    * phrase down. The highlight still follows word by word across the groups.
    */
   const speakSlow = useCallback(
-    (text: string) => {
-      const chunks = slowChunks(agree(text, gender))
-      if (!chunks.length) return
-      const starts: number[] = []
-      let n = 0
-      for (const c of chunks) {
-        starts.push(n)
-        n += wordsOf(c).length
-      }
-      setMode('slow')
-      setActiveWord(null)
-      void speakSequence(chunks, {
-        rate: slowSpeed,
-        gapMs: 260,
-        voiceURI: voiceURI ?? undefined,
-        voiceName: voiceName ?? undefined,
-        owner,
-        onPart: (i) => setActiveWord(starts[i]),
-        onWord: (part, word) => setActiveWord(starts[part] + word),
-      }).then(done)
-    },
-    [gender, slowSpeed, voiceURI, voiceName, owner, done],
+    (text: string) => say(slowText(text), 'slow', { rate: slowSpeed }),
+    [say, slowSpeed],
   )
 
-  /** One word at a time, each on its own, with room between them. */
+  /** One word at a time, each said whole, with room between them. */
   const speakWords = useCallback(
     (text: string) => {
-      const words = wordsOf(agree(text, gender))
-      if (!words.length) return
-      setMode('words')
-      setActiveWord(null)
-      void speakSequence(words, {
-        // A touch under the learner's speed: single words said at full pace
-        // come out clipped, and clipped is the opposite of what this is for.
-        rate: Math.min(rate, 0.85),
-        gapMs: 420,
-        voiceURI: voiceURI ?? undefined,
-        voiceName: voiceName ?? undefined,
-        owner,
-        onPart: setActiveWord,
-      }).then(done)
+      if (!wordsOf(text).length) return
+      // A touch under the learner's speed: single words said at full pace
+      // come out clipped, and clipped is the opposite of what this is for.
+      say(wordByWordText(text), 'words', { rate: Math.min(rate, 0.85) })
     },
-    [gender, rate, voiceURI, voiceName, owner, done],
+    [say, rate],
   )
 
   const stop = useCallback(() => {

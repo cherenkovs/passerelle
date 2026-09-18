@@ -297,7 +297,7 @@ describe('speak', () => {
     const pending = speak('bonjour')
     synth.__populate()
     await pending
-    expect(spoken[0].text).toBe('bonjour')
+    expect(spoken[0].text).toBe('bonjour.')
   })
 
   it('cancels the previous utterance so taps do not queue up', async () => {
@@ -306,14 +306,15 @@ describe('speak', () => {
     await speak('un')
     await speak('deux')
     expect(cancels).toBe(2)
-    expect(spoken.map((s) => s.text)).toEqual(['un', 'deux'])
+    expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.'])
   })
 
   it('sends the cleaned text, not the written form', async () => {
     install([voice('Jacques', 'fr-FR')])
     const { speak } = await import('./speech')
     await speak('les amis → [le‿za.mi]')
-    expect(spoken[0].text).toBe('les amis')
+    // With a full stop, so the last sound is finished rather than cut.
+    expect(spoken[0].text).toBe('les amis.')
   })
 
   it('ignores empty text instead of speaking silence', async () => {
@@ -656,7 +657,7 @@ describe('following the voice word by word', () => {
     lastUtterance!.onend?.(new Event('end') as never)
     await run
     expect(parts).toEqual([0, 1])
-    expect(spoken.map((s) => s.text)).toEqual(['un', 'deux', 'bonjour'])
+    expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.', 'bonjour.'])
   })
 })
 
@@ -675,5 +676,34 @@ describe('the slow reading', () => {
       'fatiguée ce soir.',
     ])
     expect(slowChunks('bonjour')).toEqual(['bonjour'])
+  })
+})
+
+describe('finishing a sound and pacing a phrase', () => {
+  it('ends a bare word with a full stop, and leaves punctuation alone', async () => {
+    install([])
+    const { rounded } = await import('./speech')
+    expect(rounded('Je')).toBe('Je.')
+    expect(rounded('Ça va ?')).toBe('Ça va ?')
+    expect(rounded('«Bonjour»')).toBe('«Bonjour»')
+    expect(rounded('')).toBe('')
+  })
+
+  it('paces the slow reading with commas between groups, in one utterance', async () => {
+    install([])
+    const { slowText } = await import('./speech')
+    expect(slowText('Je ne parle pas très bien français.')).toBe(
+      'Je ne parle, pas très bien, français.',
+    )
+    expect(slowText('Oui, je suis très fatiguée ce soir.')).toBe(
+      'Oui, je suis très, fatiguée ce soir.',
+    )
+  })
+
+  it('says each word whole in the word-by-word reading', async () => {
+    install([])
+    const { wordByWordText } = await import('./speech')
+    expect(wordByWordText('Tu parles français ?')).toBe('Tu. parles. français.')
+    expect(wordByWordText('Oui, je suis là.')).toBe('Oui. je. suis. là.')
   })
 })

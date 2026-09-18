@@ -139,9 +139,9 @@ export function ReviewPage() {
             <button
               type="button"
               onClick={() => setMode('cards')}
-              className="group border-primary bg-primary-soft rounded-2xl border-2 p-5 text-left transition-all"
+              className="group border-line bg-surface hover:border-primary hover:bg-primary-soft/40 rounded-2xl border-2 p-5 text-left transition-colors"
             >
-              <Layers className="text-primary-soft-fg size-6" />
+              <Layers className="text-primary size-6" />
               <div className="font-display mt-3 text-base font-semibold">Картки</div>
               <p className="text-fg-muted mt-1 text-[13px] leading-snug text-pretty">
                 Класичний формат: згадай — переверни — оціни себе
@@ -151,9 +151,9 @@ export function ReviewPage() {
             <button
               type="button"
               onClick={() => setMode('drill')}
-              className="group border-line bg-surface hover:border-line-strong rounded-2xl border-2 p-5 text-left transition-all"
+              className="group border-line bg-surface hover:border-primary hover:bg-primary-soft/40 rounded-2xl border-2 p-5 text-left transition-colors"
             >
-              <Keyboard className="text-fg-muted size-6" />
+              <Keyboard className="text-primary size-6" />
               <div className="font-display mt-3 text-base font-semibold">Ввід з клавіатури</div>
               <p className="text-fg-muted mt-1 text-[13px] leading-snug text-pretty">
                 Активне пригадування — важче, але запам’ятовується краще
