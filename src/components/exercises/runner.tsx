@@ -12,7 +12,7 @@ import { cn, pluralUk } from '@/lib/utils'
 import { useLearner, xpFor } from '@/store/learner'
 import { useSettings } from '@/store/settings'
 import { checkExercise, isAnswered, scoreVerdict, type AnswerValue, type Outcome } from './check'
-import { FeedbackBar } from './feedback'
+import { FeedbackBar, RetryBar } from './feedback'
 import { ExerciseView } from './views'
 
 export type RunResult = {
@@ -81,6 +81,17 @@ export function ExerciseRunner({
   const [index, setIndex] = useState(0)
   const [value, setValue] = useState<AnswerValue>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
+  /**
+   * A first miss on a typed answer, held back from the verdict.
+   *
+   * Being shown the answer and being made to find it are not the same
+   * lesson. A wrong word underlined, and one more go, is where the actual
+   * recall happens; the reveal is what happens when recall has failed. So
+   * the first miss on anything typed or assembled costs a second attempt
+   * rather than the answer — and if the second attempt lands, it counts as
+   * "almost", because it was.
+   */
+  const [retry, setRetry] = useState<{ given: string; expected: string } | null>(null)
   const [results, setResults] = useState<Record<string, Outcome>>({})
   const [done, setDone] = useState(false)
 
@@ -99,6 +110,7 @@ export function ExerciseRunner({
   useEffect(() => {
     setValue(null)
     setOutcome(null)
+    setRetry(null)
   }, [index, queue])
 
   const finish = useCallback(
@@ -127,8 +139,19 @@ export function ExerciseRunner({
     if (!current || outcome) return
     if (!isAnswered(current, value)) return
 
-    const res = checkExercise(current, value, { strict })
+    let res = checkExercise(current, value, { strict })
+
+    if (res.status === 'wrong' && !strict && !retry && secondChance(current)) {
+      setRetry({ given: res.given, expected: res.expected })
+      if (soundEffects) chime(false)
+      return
+    }
+    if (retry && res.status === 'correct') {
+      res = { ...res, status: 'almost', note: 'З другої спроби — зараховано наполовину.' }
+    }
+
     setOutcome(res)
+    setRetry(null)
     setResults((r) => ({ ...r, [current.id]: res }))
 
     if (soundEffects) chime(res.status !== 'wrong')
@@ -155,16 +178,7 @@ export function ExerciseRunner({
       addMistake({
         exerciseId: current.id,
         kind: current.kind,
-        question:
-          'question' in current
-            ? current.question
-            : 'sentence' in current
-              ? current.sentence
-              : 'text' in current
-                ? current.text
-                : 'audioText' in current
-                  ? current.audioText
-                  : title,
+        question: questionOf(current, title),
         expected: res.expected,
         given: res.given,
         explain: current.explain,
@@ -180,12 +194,33 @@ export function ExerciseRunner({
     current,
     ensureCards,
     outcome,
+    retry,
     soundEffects,
     speak,
     strict,
     title,
     value,
   ])
+
+  /** Give up on the second attempt: grade what was typed the first time. */
+  const reveal = useCallback(() => {
+    if (!current || !retry) return
+    const res: Outcome = { status: 'wrong', expected: retry.expected, given: retry.given }
+    setOutcome(res)
+    setRetry(null)
+    setResults((r) => ({ ...r, [current.id]: res }))
+    addXp(1, 1, 0)
+    addMistake({
+      exerciseId: current.id,
+      kind: current.kind,
+      question: questionOf(current, title),
+      expected: res.expected,
+      given: res.given,
+      explain: current.explain,
+      wordIds: current.words ?? [],
+    })
+    if (autoSpeak && frenchIn(res.expected)) setTimeout(() => speak(res.expected), 450)
+  }, [addMistake, addXp, autoSpeak, current, retry, speak, title])
 
   const next = useCallback(() => {
     if (index + 1 >= total) {
@@ -295,7 +330,11 @@ export function ExerciseRunner({
       {/* Footer: feedback + action */}
       <footer className="border-line bg-bg/90 sticky bottom-0 z-30 border-t px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          <FeedbackBar outcome={outcome} explain={current.explain} exercise={current} />
+          {retry && !outcome ? (
+            <RetryBar given={retry.given} expected={retry.expected} onReveal={reveal} />
+          ) : (
+            <FeedbackBar outcome={outcome} explain={current.explain} exercise={current} />
+          )}
           <div className="flex items-center gap-3">
             {!outcome ? (
               <Button
@@ -325,6 +364,36 @@ export function ExerciseRunner({
       </footer>
     </FullScreen>
   )
+}
+
+/** What the mistakes log shows as the question, whatever the exercise shape. */
+function questionOf(ex: Exercise, fallback: string): string {
+  if ('question' in ex) return ex.question
+  if ('sentence' in ex) return ex.sentence
+  if ('text' in ex) return ex.text
+  if ('audioText' in ex) return ex.audioText
+  return fallback
+}
+
+/**
+ * Which exercises earn a second attempt.
+ *
+ * The ones where the learner produced something: typed, translated, took
+ * dictation, assembled a sentence. A choice among three options is not
+ * recall, and a second guess there is just the odds shortening.
+ */
+function secondChance(ex: Exercise): boolean {
+  switch (ex.kind) {
+    case 'type':
+    case 'translate':
+    case 'dictation':
+    case 'wordbank':
+      return true
+    case 'cloze':
+      return !ex.options
+    default:
+      return false
+  }
 }
 
 /* ------------------------------------------------------------------ *

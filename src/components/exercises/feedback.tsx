@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, GraduationCap, Lightbulb, XCircle } from 'lucide-react'
+import { CheckCircle2, Eye, GraduationCap, Lightbulb, RotateCcw, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { ProfessorPanel } from '@/components/common/professor'
 import { SpeakInline } from '@/components/common/rich-text'
 import { SpeakButton } from '@/components/common/speak'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import type { Exercise } from '@/content'
+import { diffWords } from '@/lib/grade'
 import { frenchIn } from '@/lib/speech'
+import { pluralUk } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { Outcome } from './check'
 
@@ -121,6 +123,76 @@ export function FeedbackBar({
         </Dialog>
       )}
     </AnimatePresence>
+  )
+}
+
+/**
+ * The bar for a first miss: what was typed, with the wrong words marked, and
+ * an invitation to try again. The answer stays hidden — that is the point.
+ */
+export function RetryBar({
+  given,
+  expected,
+  onReveal,
+}: {
+  given: string
+  expected: string
+  onReveal: () => void
+}) {
+  const parts = diffWords(given, expected)
+  const wrong = parts.filter((p) => !p.ok).length
+  const expectedWords = expected.trim().split(/\s+/).filter(Boolean).length
+  const givenWords = parts.length
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      className="border-warning/35 bg-warning-soft rounded-2xl border p-4 sm:p-5"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-3">
+        <span className="text-warning grid size-8 shrink-0 place-items-center rounded-full">
+          <RotateCcw className="size-6" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-warning text-base font-semibold">
+            Не зовсім. Спробуй ще раз
+          </div>
+          <p className="fr text-fg mt-1.5 text-[15px] leading-relaxed">
+            {parts.map((p, i) => (
+              <span
+                key={i}
+                className={
+                  p.ok
+                    ? undefined
+                    : 'decoration-danger text-danger underline decoration-2 underline-offset-4'
+                }
+              >
+                {p.text}
+                {i < parts.length - 1 ? ' ' : ''}
+              </span>
+            ))}
+          </p>
+          <p className="text-fg-muted mt-1.5 text-[13px]">
+            {wrong
+              ? `${wrong} ${pluralUk(wrong, ['слово не на місці', 'слова не на місці', 'слів не на місці'])}`
+              : 'Слова правильні — перевір порядок або написання'}
+            {expectedWords !== givenWords &&
+              `; у відповіді ${expectedWords} ${pluralUk(expectedWords, ['слово', 'слова', 'слів'])}`}
+          </p>
+          <button
+            type="button"
+            onClick={onReveal}
+            className="text-fg hover:text-primary mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium underline-offset-4 hover:underline"
+          >
+            <Eye className="size-4" /> Показати відповідь
+          </button>
+        </div>
+      </div>
+    </motion.div>
   )
 }
 

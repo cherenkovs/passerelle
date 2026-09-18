@@ -26,8 +26,20 @@ import { useSettings } from '@/store/settings'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
+/**
+ * Keyed on the lesson, so moving from one lesson to another starts fresh.
+ *
+ * Without the key the component survives the route change: its step counter
+ * and — worse — the exercise runner's queue stay as they were, so opening a
+ * second lesson from the first showed the first lesson's exercises under the
+ * second one's title.
+ */
 export function LessonPage() {
   const { id = '' } = useParams()
+  return <Lesson key={id} id={id} />
+}
+
+function Lesson({ id }: { id: string }) {
   const navigate = useNavigate()
   const completeLesson = useLearner((s) => s.completeLesson)
   const ensureCards = useLearner((s) => s.ensureCards)
