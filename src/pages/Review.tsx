@@ -405,11 +405,14 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
                   <div className="text-fg text-xl font-medium">{face.back}</div>
                   {face.example && (
                     <div className="mt-4 text-[13.5px]">
-                      <div className="flex items-start justify-center gap-1.5">
-                        <div className="fr text-fg">{face.example.fr}</div>
-                        <SpeakButton text={face.example.fr} size="sm" className="shrink-0" />
-                      </div>
+                      {/* The pair stacks centred; the audio cluster is three
+                          buttons wide now and would push the French off
+                          centre if it shared the line. */}
+                      <div className="fr text-fg">{face.example.fr}</div>
                       <div className="text-fg-muted mt-0.5">{face.example.uk}</div>
+                      <div className="mt-2 flex justify-center">
+                        <SpeakButton text={face.example.fr} size="sm" />
+                      </div>
                     </div>
                   )}
                   {face.note && (
