@@ -58,6 +58,9 @@ import { useSettings, type Theme } from '@/store/settings'
 
 const AVATARS = ['🦊', '🐧', '🦉', '🐬', '🦋', '🌿', '⭐️', '🎈', '🥐', '🗼', '📚', '🎧']
 
+/** The phrase both speed rows play, so the two can be compared. */
+const SAMPLE = 'Je ne parle pas très bien français.'
+
 export function SettingsPage() {
   const navigate = useNavigate()
   const settings = useSettings()
@@ -340,21 +343,24 @@ export function SettingsPage() {
                 label="Швидкість мовлення"
                 description={`Зараз ${settings.rate.toFixed(2)}×. Для початківців корисно повільніше.`}
               >
-                <Slider
-                  value={[settings.rate]}
-                  min={0.4}
-                  max={1.2}
-                  step={0.02}
-                  onValueChange={([v]) => settings.set('rate', v)}
-                  className="w-40"
-                />
+                <div className="flex items-center gap-3">
+                  <Slider
+                    value={[settings.rate]}
+                    min={0.4}
+                    max={1.2}
+                    step={0.02}
+                    onValueChange={([v]) => settings.set('rate', v)}
+                    className="w-40"
+                  />
+                  <SpeakButton text={SAMPLE} size="sm" slow={false} words={false} />
+                </div>
               </SettingRow>
 
               <SettingRow
                 label="Повільна швидкість"
                 description={`Кнопка з черепахою: зараз ${settings.slowSpeed.toFixed(2)}×. Настільки повільно, щоб чути, де одне слово закінчується, а інше починається.`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Slider
                     value={[settings.slowSpeed]}
                     min={0.2}
@@ -363,7 +369,7 @@ export function SettingsPage() {
                     onValueChange={([v]) => settings.set('slowSpeed', v)}
                     className="w-40"
                   />
-                  <SpeakButton text="Je ne parle pas très bien français." size="sm" words={false} />
+                  <SpeakButton text={SAMPLE} size="sm" main={false} words={false} />
                 </div>
               </SettingRow>
 

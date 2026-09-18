@@ -42,6 +42,8 @@ const BANDS = [
   ...FREQUENCY_BANDS.map((b) => ({ id: b.id, label: b.label, from: b.from, to: b.to })),
 ]
 
+const PAGE = 60
+
 export function VocabularyPage() {
   const profile = useActiveProfile()
   const [query, setQuery] = useState('')
@@ -49,6 +51,17 @@ export function VocabularyPage() {
   const [status, setStatus] = useState<Status>('all')
   const [band, setBand] = useState('all')
   const [practising, setPractising] = useState<string[] | null>(null)
+
+  /**
+   * Shown a page at a time. All thirteen hundred cards at once took the page
+   * several seconds to lay out — long enough for the next tap on the nav to
+   * queue up behind it — and nobody reads the thirteen-hundredth card by
+   * scrolling. The page resets when the filters change.
+   */
+  const filterKey = [query, tag, status, band].join('\u0000')
+  const [page, setPage] = useState({ key: filterKey, shown: PAGE })
+  const shown = page.key === filterKey ? page.shown : PAGE
+  const setShown = (n: number) => setPage({ key: filterKey, shown: n })
 
   const filtered = useMemo(() => {
     const q = stripDiacritics(query.trim().toLowerCase())
@@ -177,11 +190,20 @@ export function VocabularyPage() {
       </div>
 
       {filtered.length ? (
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {filtered.map((w) => (
-            <WordCard key={w.id} word={w} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {filtered.slice(0, shown).map((w) => (
+              <WordCard key={w.id} word={w} />
+            ))}
+          </div>
+          {filtered.length > shown && (
+            <div className="flex justify-center pt-2">
+              <Button variant="surface" onClick={() => setShown(shown + PAGE)}>
+                Показати ще {Math.min(PAGE, filtered.length - shown)} з {filtered.length - shown}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
           icon={BookMarked}

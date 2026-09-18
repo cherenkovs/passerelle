@@ -169,6 +169,7 @@ export function SpeakControls({
   label,
   slow = true,
   words = 'auto',
+  main: showMain = true,
   className,
 }: {
   text: string
@@ -179,6 +180,8 @@ export function SpeakControls({
   slow?: boolean
   /** Offer word-by-word. `auto` shows it once there are three words to split. */
   words?: boolean | 'auto'
+  /** The normal-speed button. Off where only the slow one is wanted. */
+  main?: boolean
   className?: string
 }) {
   const showWords = words === 'auto' ? wordsOf(text).length >= 3 : words
@@ -189,21 +192,23 @@ export function SpeakControls({
     // a <p> is invalid HTML — the browser silently closes the paragraph early,
     // which breaks the run of text around it. `inline-flex` renders the same.
     <span className={cn('inline-flex items-center gap-1 align-middle', className)}>
-      <button
-        type="button"
-        onClick={() => ctl.toggle(text, 'normal')}
-        aria-label={label ?? `Прослухати: ${text}`}
-        aria-pressed={main}
-        className={cn(
-          'bg-primary-soft text-primary-soft-fg grid shrink-0 place-items-center rounded-full transition-all',
-          'hover:brightness-95 active:scale-95 dark:hover:brightness-110',
-          'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
-          MAIN_SIZE[size],
-          main && 'bg-primary text-primary-fg ring-primary/25 ring-4',
-        )}
-      >
-        <Volume2 className={cn(main && 'animate-pulse')} />
-      </button>
+      {showMain && (
+        <button
+          type="button"
+          onClick={() => ctl.toggle(text, 'normal')}
+          aria-label={label ?? `Прослухати: ${text}`}
+          aria-pressed={main}
+          className={cn(
+            'bg-primary-soft text-primary-soft-fg grid shrink-0 place-items-center rounded-full transition-all',
+            'hover:brightness-95 active:scale-95 dark:hover:brightness-110',
+            'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
+            MAIN_SIZE[size],
+            main && 'bg-primary text-primary-fg ring-primary/25 ring-4',
+          )}
+        >
+          <Volume2 className={cn(main && 'animate-pulse')} />
+        </button>
+      )}
 
       {slow && (
         <button
@@ -252,6 +257,7 @@ export function SpeakButton({
   label,
   slow = true,
   words = 'auto',
+  main = true,
 }: {
   text: string
   className?: string
@@ -259,6 +265,7 @@ export function SpeakButton({
   label?: string
   slow?: boolean
   words?: boolean | 'auto'
+  main?: boolean
 }) {
   const ctl = useSpeak()
   return (
@@ -269,6 +276,7 @@ export function SpeakButton({
       label={label}
       slow={slow}
       words={words}
+      main={main}
       className={className}
     />
   )
