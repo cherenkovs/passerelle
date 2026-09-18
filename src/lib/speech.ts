@@ -647,17 +647,14 @@ export function rounded(text: string): string {
  * voice's own phrasing, with nothing cut.
  *
  * The pauses are where the slowness comes from, so there have to be some:
- * a short phrase pauses after every two words rather than three, and a word
- * on its own — which has nowhere to pause — is said twice, with a breath
- * between. On the engines that clamp the rate, a single word played once at
- * "slow" was indistinguishable from normal.
+ * a short phrase pauses after every two words rather than three. A word on
+ * its own has nowhere to pause and is said once at the slow rate.
  */
 export function slowText(text: string): string {
   const words = wordsOf(text)
-  if (words.length <= 1) {
-    const word = rounded(speakable(text))
-    return word ? `${word} ${word}` : word
-  }
+  // A lone word has nowhere to pause; it is simply said once at the slow
+  // rate. Saying it twice was tried and sounded odd.
+  if (words.length <= 1) return speakable(text)
   // Two words get a pause between them; up to five, a pause after each two.
   const size = words.length <= 2 ? 1 : words.length <= 5 ? 2 : 3
   return slowChunks(text, size)

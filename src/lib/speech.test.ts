@@ -700,14 +700,14 @@ describe('finishing a sound and pacing a phrase', () => {
     )
   })
 
-  it('still has somewhere to pause in a short phrase, and says a lone word twice', async () => {
+  it('still has somewhere to pause in a short phrase', async () => {
     install([])
     const { slowText } = await import('./speech')
     // Three words: a pause after two, or there would be none at all.
     expect(slowText('Tu parles français ?')).toBe('Tu parles, français ?')
     expect(slowText('au revoir')).toBe('au, revoir')
-    // One word has no gap to slow down in, so the ear gets it twice.
-    expect(slowText('bonjour')).toBe('bonjour. bonjour.')
+    // One word has no gap to slow down in; it is said once, at the rate.
+    expect(slowText('bonjour')).toBe('bonjour')
   })
 
   it('says each word whole in the word-by-word reading', async () => {
