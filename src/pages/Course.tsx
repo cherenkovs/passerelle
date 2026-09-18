@@ -314,7 +314,10 @@ export function CoursePage() {
 
       <p className="text-fg-subtle pb-4 text-center text-[13px]">
         Не знаєш, з чого почати?{' '}
-        <Link to="/review" className="text-primary underline-offset-4 hover:underline">
+        <Link
+          to="/review"
+          className="text-primary -my-1.5 inline-block py-1.5 underline-offset-4 hover:underline"
+        >
           Повторення
         </Link>{' '}
         завжди готове.

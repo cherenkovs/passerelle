@@ -404,7 +404,7 @@ function TeacherBubble({ turn }: { turn: TutorTurn }) {
         <button
           type="button"
           onClick={() => setShowUk((v) => !v)}
-          className="text-primary mt-1.5 text-[12px] font-medium underline-offset-4 hover:underline"
+          className="text-primary mt-1.5 -mb-1.5 inline-block py-1.5 text-[12px] font-medium underline-offset-4 hover:underline"
         >
           {showUk ? 'сховати' : 'переклад'}
         </button>

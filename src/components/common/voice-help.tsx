@@ -96,7 +96,7 @@ export function VoiceHelp({ voices }: { voices: SpeechSynthesisVoice[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-fg-muted hover:text-fg mt-1.5 underline underline-offset-4"
+        className="text-fg-muted hover:text-fg mt-1.5 -mb-1.5 inline-block py-1.5 underline underline-offset-4"
       >
         {ok ? 'Як додати ще кращий голос' : 'Як встановити'}
       </button>

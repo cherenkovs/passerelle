@@ -157,8 +157,13 @@ const MAIN_SIZE: Record<ControlSize, string> = {
   lg: 'size-12 [&_svg]:size-6',
 }
 
+/**
+ * The secondary buttons are visually lighter than the main one but not
+ * smaller to the finger: 28px is the floor a thumb can hit reliably, and the
+ * slow button is the one a beginner reaches for most.
+ */
 const AUX_SIZE: Record<ControlSize, string> = {
-  sm: 'size-6 [&_svg]:size-3.5',
+  sm: 'size-7 [&_svg]:size-3.5',
   md: 'size-8 [&_svg]:size-4',
   lg: 'size-9 [&_svg]:size-[18px]',
 }

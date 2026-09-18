@@ -127,14 +127,17 @@ export function SettingRow({
   children: ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-4">
-      <div className="min-w-0">
+    // Wrapping, so a control too wide for the space left beside its label —
+    // the voice picker on a phone — drops under it instead of pushing the
+    // page sideways. A switch still sits on the label's line.
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-4">
+      <div className="min-w-0 flex-1 basis-48">
         <div className="text-fg text-sm font-medium">{label}</div>
         {description && (
           <div className="text-fg-muted mt-0.5 text-[13px] text-pretty">{description}</div>
         )}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="max-w-full shrink-0">{children}</div>
     </div>
   )
 }

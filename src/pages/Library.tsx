@@ -261,7 +261,7 @@ export function StoryPage() {
                         type="button"
                         onClick={() => toggle(i)}
                         className={cn(
-                          'text-primary mt-1.5 text-[0.8em] font-medium underline-offset-4 transition-opacity hover:underline',
+                          'text-primary mt-1.5 -mb-1.5 inline-block py-1.5 text-[0.8em] font-medium underline-offset-4 transition-opacity hover:underline',
                           open && 'opacity-0 group-hover:opacity-100',
                         )}
                       >

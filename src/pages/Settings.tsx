@@ -262,7 +262,7 @@ export function SettingsPage() {
                     : 'Голоси ще завантажуються або відсутні в системі.'
                 }
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Select
                     // Resolved, not the stored URI. A voiceURI identifies a
                     // voice on the machine it was chosen on: Firefox and Chrome
@@ -279,7 +279,7 @@ export function SettingsPage() {
                       settings.set('voiceName', v === 'auto' ? null : (chosen?.name ?? null))
                     }}
                   >
-                    <SelectTrigger className="w-56">
+                    <SelectTrigger className="w-full min-w-0 sm:w-56">
                       <SelectValue placeholder="Автоматично" />
                     </SelectTrigger>
                     <SelectContent>
@@ -295,6 +295,7 @@ export function SettingsPage() {
                   <Button
                     variant="surface"
                     size="icon"
+                    className="shrink-0"
                     // Chrome does not always announce a voice installed while it
                     // is running, so offer to look again rather than asking for
                     // a restart.
@@ -318,6 +319,7 @@ export function SettingsPage() {
                   <Button
                     variant="surface"
                     size="icon"
+                    className="shrink-0"
                     onClick={() => speak('Bonjour ! Je suis votre professeur de français.')}
                     aria-label="Прослухати"
                   >
