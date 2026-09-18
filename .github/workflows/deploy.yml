@@ -51,6 +51,9 @@ jobs:
           # Optional: the captions relay (relay/README.md). Unset means the
           # «Додати відео» dialog offers paste only, which still works.
           VITE_CAPTIONS_RELAY: ${{ vars.CAPTIONS_RELAY }}
+          # Shown at the bottom of settings, so "which build am I on" has an
+          # answer when the service worker is suspected of serving an old one.
+          VITE_BUILD: ${{ github.sha }}
 
       # No `enablement: true` here, deliberately. It looks like it would save
       # the one-time trip to Settings, but the workflow token may deploy to

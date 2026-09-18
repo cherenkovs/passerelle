@@ -567,6 +567,9 @@ export function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <p className="text-fg-subtle pb-6 text-center text-[11.5px] tabular-nums">
+        Збірка {(import.meta.env.VITE_BUILD ?? 'dev').slice(0, 7)}
+      </p>
     </div>
   )
 }
