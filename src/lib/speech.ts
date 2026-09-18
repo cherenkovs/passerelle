@@ -545,13 +545,7 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   // single tap on a word.
   if (!cachedVoices.length) await loadVoices()
 
-  // Barge-in: a new utterance always replaces the old one — but cancel() is
-  // only called when there is something to cancel. Chrome on a Mac stalls
-  // for seconds, sometimes, after a cancel() followed straight away by
-  // speak(); every needless cancel is another chance for it to.
   const synth = window.speechSynthesis
-  const wasBusy = synth.speaking || synth.pending
-  if (wasBusy) synth.cancel()
 
   const u = new SpeechSynthesisUtterance(rounded(speakable(text)))
   u.lang = opts.lang ?? 'fr-FR'
@@ -618,12 +612,41 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   currentUtterance = u
   currentOwner = opts.owner ?? null
 
-  // After a cancel, give the engine a beat before the next utterance; and if
-  // a previous cancel left it paused — Chrome does that — wake it.
-  if (wasBusy) await new Promise((r) => setTimeout(r, 40))
-  if (currentUtterance !== u) return // superseded during the beat
+  let started = false
+  const onStart = u.onstart
+  u.onstart = (e) => {
+    started = true
+    onStart?.call(u, e)
+  }
+
+  // Barge-in, and the handshake that keeps Chrome's engine honest.
+  //
+  // Cancelled mid-word a few times in a row — a learner tapping the speaker
+  // impatiently is enough — the engine jams: it reports nothing playing,
+  // accepts the next utterance, and never starts it. Measured: cancel() on
+  // its own does not clear that, nor does resume() on its own, but cancel()
+  // followed by resume() does, and the next utterance then starts within
+  // about 30 ms. So that pair goes in front of every utterance, jammed or
+  // not; when the engine is fine it costs nothing.
+  synth.cancel()
+  synth.resume()
   synth.speak(u)
-  if (synth.paused) synth.resume()
+
+  // And a watchdog, for the jam that gets through anyway. If the utterance
+  // has not started after a second, pause and resume — measured to bring a
+  // jammed engine back — and if that fails too, take it back and try once
+  // more from the top.
+  setTimeout(() => {
+    if (started || currentUtterance !== u) return
+    synth.pause()
+    synth.resume()
+    setTimeout(() => {
+      if (started || currentUtterance !== u) return
+      synth.cancel()
+      synth.resume()
+      synth.speak(u)
+    }, 900)
+  }, 1000)
 
   // Chrome bug: synthesis stops itself partway through a long utterance on
   // a network voice. Pausing and resuming keeps it going. Local voices do

@@ -322,9 +322,9 @@ describe('speak', () => {
     const { speak } = await import('./speech')
     await speak('un')
     await speak('deux')
-    // One cancel, not two: the first tap found nothing to cancel, and a
-    // needless cancel is a chance for Chrome to stall the next utterance.
-    expect(cancels).toBe(1)
+    // One cancel per utterance: the cancel-then-resume handshake in front of
+    // every one is what keeps Chrome's engine from jamming.
+    expect(cancels).toBe(2)
     expect(spoken.map((s) => s.text)).toEqual(['un.', 'deux.'])
   })
 
