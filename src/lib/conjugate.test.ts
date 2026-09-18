@@ -210,3 +210,48 @@ describe('recognising forms', () => {
     expect(conjugate('merci')).toBeNull()
   })
 })
+
+describe('the subjunctive and the pluperfect', () => {
+  it('builds the subjunctive from two stems', () => {
+    expect(forms('parler', 'subjonctif')).toEqual([
+      'que je parle',
+      'que tu parles',
+      "qu'il / elle parle",
+      'que nous parlions',
+      'que vous parliez',
+      "qu'ils / elles parlent",
+    ])
+    expect(forms('finir', 'subjonctif')[0]).toBe('que je finisse')
+    expect(forms('prendre', 'subjonctif')[0]).toBe('que je prenne')
+    expect(forms('prendre', 'subjonctif')[3]).toBe('que nous prenions')
+    expect(forms('venir', 'subjonctif')[5]).toBe("qu'ils / elles viennent")
+    expect(forms('venir', 'subjonctif')[4]).toBe('que vous veniez')
+    expect(forms('boire', 'subjonctif')[0]).toBe('que je boive')
+    expect(forms('boire', 'subjonctif')[3]).toBe('que nous buvions')
+    expect(forms('devoir', 'subjonctif')[2]).toBe("qu'il / elle doive")
+  })
+
+  it('knows the verbs that break the two-stem rule', () => {
+    expect(forms('être', 'subjonctif')[0]).toBe('que je sois')
+    expect(forms('être', 'subjonctif')[3]).toBe('que nous soyons')
+    expect(forms('avoir', 'subjonctif')[2]).toBe("qu'il / elle ait")
+    expect(forms('aller', 'subjonctif')[0]).toBe("que j'aille")
+    expect(forms('aller', 'subjonctif')[3]).toBe('que nous allions')
+    expect(forms('faire', 'subjonctif')[0]).toBe('que je fasse')
+    expect(forms('pouvoir', 'subjonctif')[0]).toBe('que je puisse')
+    expect(forms('savoir', 'subjonctif')[0]).toBe('que je sache')
+    expect(forms('vouloir', 'subjonctif')[3]).toBe('que nous voulions')
+    expect(forms('falloir', 'subjonctif')[2]).toBe("qu'il / elle faille")
+  })
+
+  it('carries the reflexive pronoun into the subjunctive', () => {
+    expect(forms('se lever', 'subjonctif')[0]).toBe('que je me lève')
+  })
+
+  it('builds the pluperfect from the imperfect of the auxiliary', () => {
+    expect(forms('parler', 'plusQueParfait')[0]).toBe("j'avais parlé")
+    expect(forms('finir', 'plusQueParfait')[3]).toBe('nous avions fini')
+    expect(forms('aller', 'plusQueParfait')[0]).toBe("j'étais allé(e)")
+    expect(forms('se lever', 'plusQueParfait')[2]).toBe("il / elle s'était levé / levée")
+  })
+})

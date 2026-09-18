@@ -9,7 +9,7 @@ import type { Exercise } from '@/content'
 import { useSpeak } from '@/components/common/speak'
 import { frenchIn } from '@/lib/speech'
 import { cn, pluralUk } from '@/lib/utils'
-import { useLearner, xpFor } from '@/store/learner'
+import { sentenceCardId, useLearner, xpFor } from '@/store/learner'
 import { useSettings } from '@/store/settings'
 import { checkExercise, isAnswered, scoreVerdict, type AnswerValue, type Outcome } from './check'
 import { FeedbackBar, RetryBar } from './feedback'
@@ -187,6 +187,7 @@ export function ExerciseRunner({
     }
 
     if (current.words?.length) ensureCards(current.words)
+    if (current.kind === 'cloze') ensureCards([sentenceCardId(current.id)])
   }, [
     addMistake,
     addXp,

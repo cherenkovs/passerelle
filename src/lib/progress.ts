@@ -1,3 +1,4 @@
+import { isSentenceCard } from '@/store/learner'
 import type { Course, Lesson, Module } from '@/content'
 import type { Profile } from '@/store/learner'
 
@@ -102,7 +103,7 @@ export function wordsSeen(profile: Profile | null) {
 /** Cards considered "known": graduated out of learning with a real interval. */
 export function wordsKnown(profile: Profile | null) {
   if (!profile) return 0
-  return Object.values(profile.srs).filter((c) => c.interval >= 7).length
+  return Object.values(profile.srs).filter((c) => c.interval >= 7 && !isSentenceCard(c.id)).length
 }
 
 export function accuracy(profile: Profile | null) {

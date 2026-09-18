@@ -11,7 +11,7 @@ import {
   Volume2,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Inline, RichText, SpeakInline } from '@/components/common/rich-text'
 import { SpeakButton, SpokenLine, useSpeak } from '@/components/common/speak'
@@ -203,6 +203,8 @@ function StepView({ step }: { step: LessonStep }) {
           )}
 
           {step.warning && <Warning>{step.warning}</Warning>}
+
+          <QuickCheck examples={step.examples ?? []} />
         </section>
       )
 
@@ -419,6 +421,100 @@ function DialogueStep({ step }: { step: Extract<LessonStep, { kind: 'dialogue' }
         )}
       </div>
     </section>
+  )
+}
+
+/**
+ * A rule checked the moment it is read.
+ *
+ * Some grammar steps show a wrong form next to the right one — "❌ Suis
+ * étudiant" beside "✅ Je suis étudiant". Reading the pair is one exposure;
+ * being asked which is which, with the rule still on screen, is retrieval,
+ * and retrieval is what makes it stay. The pairs are already in the content;
+ * this only asks about them.
+ */
+function QuickCheck({ examples }: { examples: { fr: string; uk: string }[] }) {
+  const pairs = useMemo(() => {
+    const out: { wrong: string; right: string; uk: string }[] = []
+    for (let i = 0; i < examples.length - 1; i++) {
+      const a = examples[i]
+      const b = examples[i + 1]
+      if (a.fr.startsWith('❌') && b.fr.startsWith('✅')) {
+        out.push({
+          wrong: a.fr.replace(/^❌\s*/, ''),
+          right: b.fr.replace(/^✅\s*/, ''),
+          uk: b.uk,
+        })
+      }
+    }
+    return out
+  }, [examples])
+  const [picked, setPicked] = useState<Record<number, string>>({})
+  const { speak } = useSpeak()
+
+  // Shuffled once per step, so the right answer is not always on one side.
+  const order = useMemo(
+    () => pairs.map((_, i) => (i + examples.length) % 2 === 0),
+    [pairs, examples.length],
+  )
+
+  if (!pairs.length) return null
+
+  return (
+    <div className="border-line bg-surface-2 mt-6 rounded-2xl border p-4">
+      <div className="text-fg mb-3 text-[14px] font-medium">Швидка перевірка: як правильно?</div>
+      <div className="space-y-3">
+        {pairs.map((pair, i) => {
+          const options = order[i] ? [pair.right, pair.wrong] : [pair.wrong, pair.right]
+          const chosen = picked[i]
+          return (
+            <div key={i}>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {options.map((opt) => {
+                  const isRight = opt === pair.right
+                  const state = !chosen
+                    ? 'idle'
+                    : isRight
+                      ? 'right'
+                      : opt === chosen
+                        ? 'wrong'
+                        : 'idle'
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        if (!chosen) setPicked((p) => ({ ...p, [i]: opt }))
+                        speak(opt)
+                      }}
+                      className={cn(
+                        'fr rounded-xl border-2 px-3.5 py-2.5 text-left text-[15px] font-medium transition-colors',
+                        state === 'idle' && 'border-line bg-surface hover:border-line-strong',
+                        state === 'right' && 'border-success bg-success-soft text-success',
+                        state === 'wrong' && 'border-danger bg-danger-soft text-danger',
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+              {chosen && (
+                <p
+                  className={cn(
+                    'mt-1.5 text-[13px]',
+                    chosen === pair.right ? 'text-success' : 'text-danger',
+                  )}
+                >
+                  {chosen === pair.right ? 'Так. ' : 'Ні — правильно друге. '}
+                  <span className="text-fg-muted">{pair.uk}</span>
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

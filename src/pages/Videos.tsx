@@ -5,7 +5,6 @@ import {
   ListChecks,
   Pause,
   Play,
-  Plus,
   Trash2,
   MonitorPlay,
 } from 'lucide-react'
@@ -17,29 +16,12 @@ import { ExerciseRunner } from '@/components/exercises/runner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { Input, Label, Textarea } from '@/components/ui/input'
 import { VIDEOS, getVideo, getWords } from '@/content'
+import { AddVideoDialog } from '@/components/common/add-video'
 import { WordCard } from '@/components/common/word-card'
 import { cancelSpeech } from '@/lib/speech'
 import { cn, formatDuration } from '@/lib/utils'
 import { useActiveProfile, useLearner } from '@/store/learner'
-
-/** Accepts a full URL or a bare id. */
-function parseYouTubeId(input: string): string | null {
-  const trimmed = input.trim()
-  if (/^[\w-]{11}$/.test(trimmed)) return trimmed
-  const m = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/)
-  return m ? m[1] : null
-}
 
 /* ------------------------------------------------------------------ *
  * Index
@@ -117,11 +99,10 @@ export function VideosPage() {
             <MonitorPlay className="size-5" />
           </span>
           <div className="text-fg-muted text-[13.5px] leading-relaxed text-pretty">
-            <strong className="text-fg">Як додати відео з YouTube.</strong> Відкрий потрібне відео,
-            увімкни субтитри, скопіюй їх (у меню «…» → «Показати текст відео»), встав сюди й додай
-            український переклад через символ <code className="bg-surface-2 rounded px-1">|</code>.
-            Транскрипт стане інтерактивним: клік по рядку перемотує відео, клік по слову показує
-            переклад.
+            <strong className="text-fg">Будь-яке відео з YouTube може стати уроком.</strong> Встав
+            посилання, а транскрипт візьми з самого YouTube (під відео: «…ще» → «Показати текстову
+            версію») — переклад зробиться автоматично, рядки прив’яжуться до часу, кожне слово можна
+            буде натиснути.
           </div>
         </div>
       </Card>
@@ -150,114 +131,6 @@ function CustomVideoCard({ id, title, lines }: { id: string; title: string; line
   )
 }
 
-function AddVideoDialog() {
-  const addCustomVideo = useLearner((s) => s.addCustomVideo)
-  const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
-  const [url, setUrl] = useState('')
-  const [raw, setRaw] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  const submit = () => {
-    const youtubeId = parseYouTubeId(url)
-    if (!youtubeId) {
-      setError('Не вдалося розпізнати посилання на YouTube.')
-      return
-    }
-    const transcript = raw
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [fr, uk = ''] = line.split('|').map((s) => s.trim())
-        return { fr, uk }
-      })
-      .filter((l) => l.fr)
-
-    if (!transcript.length) {
-      setError('Додай хоча б один рядок транскрипту.')
-      return
-    }
-
-    addCustomVideo({ title: title.trim() || 'Моє відео', youtubeId, transcript })
-    setOpen(false)
-    setTitle('')
-    setUrl('')
-    setRaw('')
-    setError(null)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus /> Додати відео
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Додати відео з YouTube</DialogTitle>
-          <DialogDescription>
-            Транскрипт робить будь-яке відео навчальним матеріалом: клік по рядку перемотує, клік по
-            слову показує переклад.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="v-title">Назва</Label>
-            <Input
-              id="v-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Напр. «Інтерв'ю про Париж»"
-              className="mt-1.5"
-            />
-          </div>
-          <div>
-            <Label htmlFor="v-url">Посилання на YouTube</Label>
-            <Input
-              id="v-url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…"
-              className="mt-1.5"
-            />
-          </div>
-          <div>
-            <Label htmlFor="v-raw">
-              Транскрипт — один рядок на репліку, формат: французька | український переклад
-            </Label>
-            <Textarea
-              id="v-raw"
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              rows={8}
-              placeholder={
-                "Bonjour, je m'appelle Marie. | Добрий день, мене звати Марі.\nJ'habite à Paris. | Я живу в Парижі."
-              }
-              className="mt-1.5 font-mono text-[13px]"
-            />
-            <p className="text-fg-subtle mt-1.5 text-[12px]">
-              Переклад необов’язковий — без нього рядки все одно озвучуються й розбираються по
-              словах.
-            </p>
-          </div>
-
-          {error && <p className="text-danger text-sm">{error}</p>}
-        </div>
-
-        <DialogFooter>
-          <Button variant="surface" onClick={() => setOpen(false)}>
-            Скасувати
-          </Button>
-          <Button onClick={submit}>Додати</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 /* ------------------------------------------------------------------ *
  * Player
  * ------------------------------------------------------------------ */
@@ -276,10 +149,63 @@ export function VideoPage() {
   const [active, setActive] = useState<number | null>(null)
   const [playingAll, setPlayingAll] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([])
   const abortRef = useRef(false)
   const { speak, activeWord } = useSpeak()
 
   useEffect(() => () => cancelSpeech(), [])
+
+  const youtubeId = builtin?.youtubeId ?? custom?.youtubeId
+  const times = (builtin?.transcript ?? custom?.transcript ?? []).map((l, i) =>
+    't' in l && typeof l.t === 'number' ? l.t : i * 5,
+  )
+
+  /**
+   * The transcript follows the video.
+   *
+   * The embedded player reports its position to whoever asks: once told we are
+   * listening, it posts `infoDelivery` messages with the current time several
+   * times a second while playing. The line whose timestamp was passed most
+   * recently is the one being said, and it is kept in view — nearest edge, so
+   * a learner reading ahead is not yanked back to the top.
+   */
+  useEffect(() => {
+    if (!youtubeId) return
+    const onMessage = (e: MessageEvent) => {
+      if (typeof e.data !== 'string' || !/youtube(-nocookie)?\.com$/.test(e.origin)) return
+      let data: { event?: string; info?: { currentTime?: number } }
+      try {
+        data = JSON.parse(e.data)
+      } catch {
+        return
+      }
+      const t = data.info?.currentTime
+      if (data.event !== 'infoDelivery' || typeof t !== 'number') return
+      let i = -1
+      for (let k = 0; k < times.length; k++) if (times[k] <= t + 0.2) i = k
+      if (i < 0) return
+      setActive((prev) => {
+        if (prev === i) return prev
+        lineRefs.current[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        return i
+      })
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+    // times is derived from the transcript, which is fixed for this page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [youtubeId])
+
+  /** Ask the player to start reporting; it only does so once asked. */
+  const listen = () => {
+    const w = iframeRef.current?.contentWindow
+    if (!w) return
+    w.postMessage(JSON.stringify({ event: 'listening', id: 'passerelle', channel: 'widget' }), '*')
+    w.postMessage(
+      JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }),
+      '*',
+    )
+  }
 
   if (!builtin && !custom) {
     return (
@@ -296,8 +222,8 @@ export function VideoPage() {
 
   const title = builtin?.title ?? custom!.title
   const subtitle = builtin?.titleUk
-  const youtubeId = builtin?.youtubeId ?? custom?.youtubeId
-  const transcript = builtin?.transcript ?? custom!.transcript.map((l, i) => ({ ...l, t: i * 5 }))
+  const transcript =
+    builtin?.transcript ?? custom!.transcript.map((l, i) => ({ ...l, t: l.t ?? i * 5 }))
   const exercises = builtin?.exercises ?? []
 
   if (quiz && exercises.length) {
@@ -382,6 +308,7 @@ export function VideoPage() {
             title={title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
             allowFullScreen
+            onLoad={listen}
             className="aspect-video w-full"
           />
         </div>
@@ -413,6 +340,9 @@ export function VideoPage() {
           {transcript.map((line, i) => (
             <div
               key={i}
+              ref={(el) => {
+                lineRefs.current[i] = el
+              }}
               className={cn(
                 'group flex gap-3 rounded-xl border p-3 transition-colors',
                 active === i

@@ -57,8 +57,12 @@ export type CustomVideo = {
   id: string
   title: string
   youtubeId: string
-  /** Raw lines "fr | uk" — parsed by the player. */
-  transcript: { fr: string; uk: string }[]
+  /**
+   * One entry per line. `t` is the second it starts at, when the transcript
+   * came with timing (pasted from YouTube, or fetched); without it the
+   * player spaces the lines out evenly so seeking still goes somewhere.
+   */
+  transcript: { fr: string; uk: string; t?: number }[]
   createdAt: string
 }
 
@@ -199,6 +203,21 @@ export function normalizeProfile(raw: unknown): Profile | null {
 
 /** Bumped whenever a profile gains a field; stamped into exports too. */
 export const LEARNER_VERSION = 4
+
+/**
+ * Sentence cards.
+ *
+ * A word on its own is the weakest form of the memory: "depuis — з, уже"
+ * says nothing about the tense that follows it. A gap-fill from a lesson is
+ * the same word inside the sentence it was met in, which is what recall in
+ * conversation actually needs. So every cloze exercise the learner meets
+ * becomes a card too, scheduled by the same algorithm, under an id that
+ * names the exercise rather than a word.
+ */
+export const SENTENCE_CARD = 's:'
+export const sentenceCardId = (exerciseId: string) => `${SENTENCE_CARD}${exerciseId}`
+export const isSentenceCard = (cardId: string) => cardId.startsWith(SENTENCE_CARD)
+export const exerciseOfCard = (cardId: string) => cardId.slice(SENTENCE_CARD.length)
 
 type LearnerState = {
   profiles: Profile[]

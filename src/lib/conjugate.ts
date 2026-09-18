@@ -8,16 +8,24 @@
  * -prendre, -venir, -mettre — is conjugated from its base with the prefix put
  * back, which is how the language itself does it.
  *
- * Six tenses: the four a learner uses in conversation, the conditional, and
- * the imperative. Subjonctif is deliberately not here yet; it needs the ils-
- * stem plus a second stem for nous/vous on the irregulars, and getting it half
- * right would be worse than pointing at the lesson.
+ * Eight tenses: the four a learner uses in conversation, the conditional, the
+ * imperative, the subjunctive, and the pluperfect. The subjunctive is built
+ * the way the language builds it — the ils-stem for je/tu/il/ils, the nous-
+ * stem for nous/vous — with the handful of verbs that break even that rule
+ * written out in full.
  */
 
 export type Person = 0 | 1 | 2 | 3 | 4 | 5
 
 export type Tense =
-  'present' | 'passeCompose' | 'imparfait' | 'futur' | 'conditionnel' | 'imperatif'
+  | 'present'
+  | 'passeCompose'
+  | 'imparfait'
+  | 'plusQueParfait'
+  | 'futur'
+  | 'conditionnel'
+  | 'subjonctif'
+  | 'imperatif'
 
 export const TENSES: { id: Tense; fr: string; uk: string; hint: string }[] = [
   { id: 'present', fr: 'présent', uk: 'теперішній', hint: 'що відбувається зараз або зазвичай' },
@@ -33,8 +41,20 @@ export const TENSES: { id: Tense; fr: string; uk: string; hint: string }[] = [
     uk: 'минулий (тривалий)',
     hint: 'що було, тривало, повторювалося',
   },
+  {
+    id: 'plusQueParfait',
+    fr: 'plus-que-parfait',
+    uk: 'давноминулий',
+    hint: 'що сталося раніше за іншу минулу подію',
+  },
   { id: 'futur', fr: 'futur simple', uk: 'майбутній', hint: 'що буде' },
   { id: 'conditionnel', fr: 'conditionnel', uk: 'умовний', hint: 'що було б; ввічливе прохання' },
+  {
+    id: 'subjonctif',
+    fr: 'subjonctif',
+    uk: 'суб’юнктив',
+    hint: 'після que: бажання, необхідність, емоція, сумнів',
+  },
   { id: 'imperatif', fr: 'impératif', uk: 'наказовий', hint: 'зроби! зробімо! зробіть!' },
 ]
 
@@ -74,6 +94,20 @@ const IR_PRESENT = ['is', 'is', 'it', 'issons', 'issez', 'issent']
 const RE_PRESENT = ['s', 's', '', 'ons', 'ez', 'ent']
 const IMPARFAIT = ['ais', 'ais', 'ait', 'ions', 'iez', 'aient']
 const FUTUR = ['ai', 'as', 'a', 'ons', 'ez', 'ont']
+const SUBJ = ['e', 'es', 'e', 'ions', 'iez', 'ent']
+
+/**
+ * The subjunctive from two stems.
+ *
+ * je/tu/il/ils take the ils-form of the present without -ent; nous/vous take
+ * the nous-form without -ons, which is also the imperfect stem. For a regular
+ * verb the two stems are the same; for prendre, venir, boire, devoir they
+ * differ, and this is exactly what makes "que je prenne / que nous prenions".
+ */
+function subjunctive(present: string[], imparfaitStem: string): string[] {
+  const ils = present[5].replace(/ent$/, '')
+  return SUBJ.map((end, i) => (i === 3 || i === 4 ? imparfaitStem : ils) + end)
+}
 
 /**
  * First-group verbs whose stem changes before a silent ending.
@@ -167,7 +201,9 @@ function regularEr(inf: string): Omit<Conjugation, 'infinitive' | 'base' | 'refl
       imparfait,
       futur: FUTUR.map((e) => fut + e),
       conditionnel: IMPARFAIT.map((e) => fut + e),
+      subjonctif: subjunctive(present, erStem(inf, 3, 'e')),
       passeCompose: [],
+      plusQueParfait: [],
       // The tu form loses its s: parle !, not parles ! (it comes back before
       // y and en — vas-y — which is a lesson, not a table.)
       imperatif: [present[0], present[3], present[4]],
@@ -187,7 +223,9 @@ function regularIr(inf: string): Omit<Conjugation, 'infinitive' | 'base' | 'refl
       imparfait: IMPARFAIT.map((e) => stem + 'iss' + e),
       futur: FUTUR.map((e) => inf + e),
       conditionnel: IMPARFAIT.map((e) => inf + e),
+      subjonctif: subjunctive(present, stem + 'iss'),
       passeCompose: [],
+      plusQueParfait: [],
       imperatif: [present[1], present[3], present[4]],
     },
   }
@@ -206,7 +244,9 @@ function regularRe(inf: string): Omit<Conjugation, 'infinitive' | 'base' | 'refl
       imparfait: IMPARFAIT.map((e) => stem + e),
       futur: FUTUR.map((e) => fut + e),
       conditionnel: IMPARFAIT.map((e) => fut + e),
+      subjonctif: subjunctive(present, stem),
       passeCompose: [],
+      plusQueParfait: [],
       imperatif: [present[1], present[3], present[4]],
     },
   }
@@ -226,6 +266,8 @@ type Irregular = {
   auxiliary?: 'être'
   /** Explicit forms, or null for a verb that has no imperative at all. */
   imperatif?: [string, string, string] | null
+  /** Full subjunctive, for the few verbs the two-stem rule does not reach. */
+  subjonctif?: [string, string, string, string, string, string]
   note?: string
 }
 
@@ -241,6 +283,7 @@ const IRREGULAR: Record<string, Irregular> = {
     futur: 'ser',
     imparfait: 'ét',
     imperatif: ['sois', 'soyons', 'soyez'],
+    subjonctif: ['sois', 'sois', 'soit', 'soyons', 'soyez', 'soient'],
     note: 'Єдине дієслово, чий imparfait не береться з форми nous: ét-.',
   },
   avoir: {
@@ -248,6 +291,7 @@ const IRREGULAR: Record<string, Irregular> = {
     participle: 'eu',
     futur: 'aur',
     imperatif: ['aie', 'ayons', 'ayez'],
+    subjonctif: ['aie', 'aies', 'ait', 'ayons', 'ayez', 'aient'],
     note: 'Вік, голод, спрага, страх — усе через avoir: j’ai 25 ans, j’ai faim.',
   },
   aller: {
@@ -256,12 +300,14 @@ const IRREGULAR: Record<string, Irregular> = {
     futur: 'ir',
     auxiliary: 'être',
     imperatif: ['va', 'allons', 'allez'],
+    subjonctif: ['aille', 'ailles', 'aille', 'allions', 'alliez', 'aillent'],
     note: 'Aller + інфінітив = найближче майбутнє: je vais partir — я зараз піду.',
   },
   faire: {
     present: ['fais', 'fais', 'fait', 'faisons', 'faites', 'font'],
     participle: 'fait',
     futur: 'fer',
+    subjonctif: ['fasse', 'fasses', 'fasse', 'fassions', 'fassiez', 'fassent'],
     note: 'Faisons читається [fə.zɔ̃] — з «ə», хоч пишеться ai.',
   },
   venir: {
@@ -290,6 +336,7 @@ const IRREGULAR: Record<string, Irregular> = {
     participle: 'pu',
     futur: 'pourr',
     imperatif: null,
+    subjonctif: ['puisse', 'puisses', 'puisse', 'puissions', 'puissiez', 'puissent'],
     note: 'Немає наказового способу — не можна наказати «могти».',
   },
   vouloir: {
@@ -297,6 +344,7 @@ const IRREGULAR: Record<string, Irregular> = {
     participle: 'voulu',
     futur: 'voudr',
     imperatif: ['veuille', 'veuillons', 'veuillez'],
+    subjonctif: ['veuille', 'veuilles', 'veuille', 'voulions', 'vouliez', 'veuillent'],
     note: 'Je voudrais (conditionnel) — ввічливе «я хотів би». Je veux звучить різко.',
   },
   devoir: {
@@ -309,6 +357,7 @@ const IRREGULAR: Record<string, Irregular> = {
     participle: 'su',
     futur: 'saur',
     imperatif: ['sache', 'sachons', 'sachez'],
+    subjonctif: ['sache', 'saches', 'sache', 'sachions', 'sachiez', 'sachent'],
     note: 'Savoir — знати факт або вміти; connaître — бути знайомим з людиною чи місцем.',
   },
   connaître: {
@@ -463,18 +512,21 @@ const IRREGULAR: Record<string, Irregular> = {
     present: ['', '', 'faut', '', '', ''],
     participle: 'fallu',
     futur: 'faudr',
+    subjonctif: ['', '', 'faille', '', '', ''],
     note: 'Тільки безособове: il faut — треба. Il faut que + subjonctif.',
   },
   pleuvoir: {
     present: ['', '', 'pleut', '', '', ''],
     participle: 'plu',
     futur: 'pleuvr',
+    subjonctif: ['', '', 'pleuve', '', '', ''],
     note: 'Тільки безособове: il pleut — іде дощ.',
   },
   valoir: {
     present: ['vaux', 'vaux', 'vaut', 'valons', 'valez', 'valent'],
     participle: 'valu',
     futur: 'vaudr',
+    subjonctif: ['vaille', 'vailles', 'vaille', 'valions', 'valiez', 'vaillent'],
   },
   résoudre: {
     present: ['résous', 'résous', 'résout', 'résolvons', 'résolvez', 'résolvent'],
@@ -560,7 +612,13 @@ function irregular(inf: string, key: string, prefix: string) {
       conditionnel: impersonal
         ? ['', '', futStem + 'ait', '', '', '']
         : IMPARFAIT.map((e) => futStem + e),
+      subjonctif: v.subjonctif
+        ? v.subjonctif.map((f) => (f ? prefix + f : ''))
+        : impersonal
+          ? ['', '', present[2].replace(/t$/, 'e'), '', '', '']
+          : subjunctive(present, ipfStem),
       passeCompose: [],
+      plusQueParfait: [],
       imperatif,
     },
   }
@@ -595,6 +653,8 @@ function agreed(pp: string, person: Person): string {
 
 const AVOIR = ['ai', 'as', 'a', 'avons', 'avez', 'ont']
 const ETRE = ['suis', 'es', 'est', 'sommes', 'êtes', 'sont']
+const AVAIT = ['avais', 'avais', 'avait', 'avions', 'aviez', 'avaient']
+const ETAIT = ['étais', 'étais', 'était', 'étions', 'étiez', 'étaient']
 
 /** Is this something the conjugator can handle at all? */
 export function isConjugable(word: string): boolean {
@@ -632,14 +692,18 @@ export function conjugate(word: string): Conjugation | null {
       return pronoun === 'je' ? `je ${refl}` : `${pronoun} ${refl}`
     })
 
-  const passeCompose = aux.map((a, i) => {
-    const p = i as Person
-    if (!core.tenses.present[i]) return ''
-    const pp = auxiliary === 'être' ? agreed(core.participle, p) : core.participle
-    if (!reflexive) return `${elide(PRONOUNS[p], a)} ${pp}`
-    const refl = elide(REFLEXIVE[p], a)
-    return `${PRONOUNS[p]} ${refl} ${pp}`
-  })
+  /** Auxiliary + participle: the same assembly for both compound tenses. */
+  const compound = (auxForms: string[]) =>
+    auxForms.map((a, i) => {
+      const p = i as Person
+      if (!core.tenses.present[i]) return ''
+      const pp = auxiliary === 'être' ? agreed(core.participle, p) : core.participle
+      if (!reflexive) return `${elide(PRONOUNS[p], a)} ${pp}`
+      const refl = elide(REFLEXIVE[p], a)
+      return `${PRONOUNS[p]} ${refl} ${pp}`
+    })
+  const passeCompose = compound(aux)
+  const plusQueParfait = compound(auxiliary === 'être' ? ETAIT : AVAIT)
 
   const imperatif = core.tenses.imperatif.map((f, i) => {
     if (!f) return ''
@@ -662,7 +726,12 @@ export function conjugate(word: string): Conjugation | null {
       imparfait: attach(core.tenses.imparfait),
       futur: attach(core.tenses.futur),
       conditionnel: attach(core.tenses.conditionnel),
+      // "que" in front, elided before a vowel: que je parle, qu'il parle.
+      subjonctif: attach(core.tenses.subjonctif).map((f) =>
+        f ? (/^[aeiouy]/i.test(f) ? `qu'${f}` : `que ${f}`) : '',
+      ),
       passeCompose,
+      plusQueParfait,
       imperatif,
     },
   }

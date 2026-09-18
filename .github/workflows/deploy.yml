@@ -47,6 +47,10 @@ jobs:
       - run: npm test
 
       - run: npm run build
+        env:
+          # Optional: the captions relay (relay/README.md). Unset means the
+          # «Додати відео» dialog offers paste only, which still works.
+          VITE_CAPTIONS_RELAY: ${{ vars.CAPTIONS_RELAY }}
 
       # No `enablement: true` here, deliberately. It looks like it would save
       # the one-time trip to Settings, but the workflow token may deploy to

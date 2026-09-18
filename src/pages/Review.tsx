@@ -9,10 +9,17 @@ import { FullScreen } from '@/components/layout/full-screen'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { WORDS, findExercises, generateVocabExercises, getWord, type Exercise } from '@/content'
+import {
+  WORDS,
+  findExercise,
+  findExercises,
+  generateVocabExercises,
+  getWord,
+  type Exercise,
+} from '@/content'
 import { previewInterval, type Rating, type SrsCard } from '@/lib/srs'
 import { cn, pluralUk, todayKey } from '@/lib/utils'
-import { useActiveProfile, useLearner } from '@/store/learner'
+import { exerciseOfCard, isSentenceCard, useActiveProfile, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
 
 type Mode = 'idle' | 'cards' | 'drill' | 'mistakes'
@@ -49,9 +56,23 @@ export function ReviewPage() {
   }
 
   if (mode === 'drill' && dueIds.length) {
+    // Words become generated drills; sentence cards are their own cloze,
+    // straight from the lesson — the gap is the recall.
+    const due = dueIds.slice(0, 20)
+    const sentences = due
+      .filter(isSentenceCard)
+      .map((id) => findExercise(exerciseOfCard(id)))
+      .filter((e): e is Exercise => Boolean(e))
+    const drills = [
+      ...generateVocabExercises(
+        due.filter((id) => !isSentenceCard(id)),
+        WORDS,
+      ),
+      ...sentences,
+    ]
     return (
       <ExerciseRunner
-        exercises={generateVocabExercises(dueIds.slice(0, 20), WORDS)}
+        exercises={drills}
         title="Тренування словника"
         subtitle="Згенеровано з карток, які сьогодні на повторенні"
         onExit={() => setMode('idle')}
@@ -192,6 +213,59 @@ export function ReviewPage() {
  * Flashcard session
  * ------------------------------------------------------------------ */
 
+/**
+ * What a card shows, whichever kind it is.
+ *
+ * A word card asks for the translation. A sentence card asks for the missing
+ * word — the sentence with its gap on the front, filled in on the back — so
+ * the recall is of the word in the place it lives, not in isolation.
+ */
+type Face = {
+  kind: 'word' | 'sentence'
+  front: string
+  frontLabel: string
+  back: string
+  backLabel: string
+  /** What the speaker button says: the word, or the whole sentence. */
+  speak: string
+  hint: string
+  ipa?: string
+  example?: { fr: string; uk: string }
+  note?: string
+}
+
+function faceOf(cardId: string): Face | undefined {
+  if (!isSentenceCard(cardId)) {
+    const word = getWord(cardId)
+    if (!word) return undefined
+    return {
+      kind: 'word',
+      front: word.fr,
+      frontLabel: 'Французькою',
+      back: word.uk,
+      backLabel: 'Переклад',
+      speak: word.fr,
+      hint: 'Згадай переклад, потім натисни, щоб перевірити',
+      ipa: word.ipa,
+      example: word.example,
+      note: word.note,
+    }
+  }
+  const ex = findExercise(exerciseOfCard(cardId))
+  if (!ex || ex.kind !== 'cloze') return undefined
+  const answer = ex.answer[0] ?? ''
+  return {
+    kind: 'sentence',
+    front: ex.sentence.replace(/_{2,}/, '______'),
+    frontLabel: 'Яке слово пропущено?',
+    back: ex.translation,
+    backLabel: 'Речення повністю',
+    speak: ex.sentence.replace(/_{2,}/, answer),
+    hint: ex.hint ? `Підказка: ${ex.hint}` : 'Згадай слово, потім натисни, щоб перевірити',
+    note: ex.explain,
+  }
+}
+
 const RATINGS: { key: Rating; label: string; className: string }[] = [
   { key: 'again', label: 'Забув', className: 'border-danger text-danger hover:bg-danger-soft' },
   { key: 'hard', label: 'Важко', className: 'border-warning text-warning hover:bg-warning-soft' },
@@ -212,7 +286,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
   const [reviewed, setReviewed] = useState(0)
 
   const card = queue[index]
-  const word = card ? getWord(card.id) : undefined
+  const face = card ? faceOf(card.id) : undefined
 
   const rate = (rating: Rating) => {
     if (!card) return
@@ -234,7 +308,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
     setIndex(0)
   }
 
-  if (!card || !word) {
+  if (!card || !face) {
     return (
       <div className="grid min-h-[70vh] place-items-center px-4">
         <motion.div
@@ -283,7 +357,7 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
               onClick={() => {
                 if (!flipped) {
                   setFlipped(true)
-                  if (autoSpeak) speak(word.fr)
+                  if (autoSpeak) speak(face.speak)
                 }
               }}
               initial={{ opacity: 0, rotateX: flipped ? -12 : 12, y: 10 }}
@@ -298,20 +372,27 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
               )}
             >
               <div className="text-fg-subtle mb-4 text-[12px] font-medium">
-                {flipped ? 'Переклад' : 'Французькою'}
+                {flipped ? face.backLabel : face.frontLabel}
               </div>
 
-              <div className="fr font-display text-4xl leading-tight font-semibold tracking-tight text-balance">
-                {word.fr}
+              <div
+                className={cn(
+                  'fr font-display leading-tight font-semibold tracking-tight text-balance',
+                  face.kind === 'word' ? 'text-4xl' : 'text-2xl',
+                )}
+              >
+                {flipped && face.kind === 'sentence' ? face.speak : face.front}
               </div>
 
-              {showIpa && word.ipa && (
-                <div className="text-fg-subtle mt-2 font-mono text-[13px]">[{word.ipa}]</div>
+              {showIpa && face.ipa && (
+                <div className="text-fg-subtle mt-2 font-mono text-[13px]">[{face.ipa}]</div>
               )}
 
-              <div className="mt-5 flex justify-center">
-                <SpeakButton text={word.fr} slow />
-              </div>
+              {(face.kind === 'word' || flipped) && (
+                <div className="mt-5 flex justify-center">
+                  <SpeakButton text={face.speak} slow />
+                </div>
+              )}
 
               {flipped ? (
                 <motion.div
@@ -319,26 +400,24 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
                   animate={{ opacity: 1, y: 0 }}
                   className="border-line mt-6 border-t pt-6"
                 >
-                  <div className="text-fg text-xl font-medium">{word.uk}</div>
-                  {word.example && (
+                  <div className="text-fg text-xl font-medium">{face.back}</div>
+                  {face.example && (
                     <div className="mt-4 text-[13.5px]">
                       <div className="flex items-start justify-center gap-1.5">
-                        <div className="fr text-fg">{word.example.fr}</div>
-                        <SpeakButton text={word.example.fr} size="sm" className="shrink-0" />
+                        <div className="fr text-fg">{face.example.fr}</div>
+                        <SpeakButton text={face.example.fr} size="sm" className="shrink-0" />
                       </div>
-                      <div className="text-fg-muted mt-0.5">{word.example.uk}</div>
+                      <div className="text-fg-muted mt-0.5">{face.example.uk}</div>
                     </div>
                   )}
-                  {word.note && (
+                  {face.note && (
                     <div className="bg-warning-soft text-warning mt-4 rounded-lg px-3 py-2 text-left text-[12.5px] leading-snug">
-                      {word.note}
+                      {face.note}
                     </div>
                   )}
                 </motion.div>
               ) : (
-                <p className="text-fg-subtle mt-8 text-[13px]">
-                  Згадай переклад, потім натисни, щоб перевірити
-                </p>
+                <p className="text-fg-subtle mt-8 text-[13px]">{face.hint}</p>
               )}
             </motion.button>
           </AnimatePresence>
@@ -372,10 +451,10 @@ function FlashcardSession({ cards, onExit }: { cards: SrsCard[]; onExit: () => v
               className="w-full"
               onClick={() => {
                 setFlipped(true)
-                if (autoSpeak) speak(word.fr)
+                if (autoSpeak) speak(face.speak)
               }}
             >
-              Показати переклад
+              {face.kind === 'word' ? 'Показати переклад' : 'Показати відповідь'}
             </Button>
           )}
         </div>
