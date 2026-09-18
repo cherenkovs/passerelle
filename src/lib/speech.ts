@@ -475,16 +475,36 @@ function expandAlternatives(text: string) {
   const parts = text.split(' / ')
   if (parts.length < 2) return text
 
+  // A full stop between alternatives, not a comma. With a comma the voice ran
+  // "il, elle" together into one word; a stop gives each form its own breath.
+  const SEP = '. '
+
+  // "qu'il / elle prenne": the conjunction is written once, on the first
+  // pronoun, and belongs to every one — "qu'il prenne. qu'elle prenne".
+  const conj = parts[0].match(/^(qu[’']|que\s)/i)?.[1] ?? ''
+  const bare = (p: string) =>
+    p
+      .replace(/^(qu[’']|que\s)/i, '')
+      .toLowerCase()
+      .replace(/’/g, "'")
+
   const last = parts[parts.length - 1].split(' ')
   const leading = parts.slice(0, -1)
-  const sharesTail =
-    last.length > 1 &&
-    leading.every((p) => SUBJECT_PRONOUNS.has(p.toLowerCase().replace(/’/g, "'")))
+  const sharesTail = last.length > 1 && leading.every((p) => SUBJECT_PRONOUNS.has(bare(p)))
 
-  if (!sharesTail) return parts.join(', ')
+  // A comma that ended an alternative would now sit against the stop.
+  const trimmed = parts.map((p) => p.replace(/[,;:]+$/, ''))
+  if (!sharesTail) return trimmed.join(SEP)
 
   const tail = last.slice(1).join(' ')
-  return [...leading.map((p) => `${p} ${tail}`), parts[parts.length - 1]].join(', ')
+  const withConj = (pronoun: string) => {
+    if (!conj) return pronoun
+    if (/^(qu[’']|que\s)/i.test(pronoun)) return pronoun
+    // "que" elides before a vowel: qu'il, qu'elle, qu'on — que nous.
+    return /^[aeiouy]/i.test(pronoun) ? `qu'${pronoun}` : `que ${pronoun}`
+  }
+  const lastPronoun = withConj(last[0])
+  return [...leading.map((p) => `${withConj(p)} ${tail}`), `${lastPronoun} ${tail}`].join(SEP)
 }
 
 /** Anything outside the Cyrillic alphabet, which in this app means French. */
