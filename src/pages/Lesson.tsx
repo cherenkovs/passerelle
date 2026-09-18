@@ -1,16 +1,28 @@
 import { motion } from 'framer-motion'
-import { AlertTriangle, ArrowLeft, ArrowRight, Dumbbell, Volume2, X } from 'lucide-react'
-import { useState } from 'react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Dumbbell,
+  Eye,
+  EyeOff,
+  Mic,
+  Square,
+  Volume2,
+  X,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Inline, RichText, SpeakInline } from '@/components/common/rich-text'
-import { SpeakButton, TapText, useSpeak } from '@/components/common/speak'
+import { SpeakButton, SpokenLine, useSpeak } from '@/components/common/speak'
 import { WordCard } from '@/components/common/word-card'
 import { ExerciseRunner } from '@/components/exercises/runner'
 import { FullScreen } from '@/components/layout/full-screen'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { getLesson, getWords, moduleOfLesson, type GrammarTable, type LessonStep } from '@/content'
-import { frenchIn, speak as speakRaw } from '@/lib/speech'
+import { estimateMs, frenchIn, speakSequence } from '@/lib/speech'
+import { useSettings } from '@/store/settings'
 import { cn } from '@/lib/utils'
 import { useLearner } from '@/store/learner'
 
@@ -168,18 +180,12 @@ function StepView({ step }: { step: LessonStep }) {
           {step.examples && (
             <div className="mt-6 space-y-2.5">
               {step.examples.map((ex, i) => (
-                <div
+                <SpokenLine
                   key={i}
-                  className="border-line bg-surface flex items-start gap-3 rounded-xl border p-3.5"
-                >
-                  <SpeakButton text={ex.fr.replace(/^[❌✅]\s*/, '')} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="fr text-[15px] leading-snug font-medium">
-                      <TapText>{ex.fr}</TapText>
-                    </div>
-                    <div className="text-fg-muted mt-0.5 text-[13px]">{ex.uk}</div>
-                  </div>
-                </div>
+                  fr={ex.fr}
+                  uk={ex.uk}
+                  className="border-line bg-surface rounded-xl border p-3.5"
+                />
               ))}
             </div>
           )}
@@ -189,42 +195,7 @@ function StepView({ step }: { step: LessonStep }) {
       )
 
     case 'dialogue':
-      return (
-        <section>
-          <Eyebrow>Діалог</Eyebrow>
-          <Title>{step.title}</Title>
-          <p className="text-fg-subtle mt-2 text-sm italic">{step.setting}</p>
-
-          <div className="mt-6 space-y-3">
-            {step.lines.map((line, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'border-line rounded-2xl border p-4',
-                  i % 2 === 0 ? 'bg-surface' : 'bg-surface-2',
-                )}
-              >
-                <div className="text-accent mb-1.5 text-[11px] font-semibold tracking-wider uppercase">
-                  {line.speaker}
-                </div>
-                <div className="flex items-start gap-3">
-                  <SpeakButton text={line.fr} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="fr text-[16px] leading-snug font-medium">
-                      <TapText>{line.fr}</TapText>
-                    </div>
-                    <div className="text-fg-muted mt-1 text-[13.5px]">{line.uk}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 flex justify-center">
-            <PlayAll lines={step.lines.map((l) => l.fr)} />
-          </div>
-        </section>
-      )
+      return <DialogueStep step={step} />
 
     case 'pronunciation':
       return (
@@ -253,24 +224,189 @@ function StepView({ step }: { step: LessonStep }) {
   }
 }
 
-function PlayAll({ lines }: { lines: string[] }) {
-  const [playing, setPlaying] = useState(false)
+/**
+ * A dialogue, three ways.
+ *
+ * Reading it with the text in view is the least the learner can do with it,
+ * and the least useful. Hearing it first, with the French hidden, is how
+ * listening actually gets trained: the ear has to do the work before the eye
+ * is allowed to check. And saying each line back after the voice — shadowing —
+ * is the closest thing to conversation practice that needs nobody else in the
+ * room. The pause after each line scales with its length, so there is time to
+ * say it and not so much that it feels like the app has stalled.
+ */
+type DialogueMode = 'read' | 'listen' | 'shadow'
 
-  const play = async () => {
-    setPlaying(true)
-    for (const line of lines) {
-      await new Promise<void>((resolve) => {
-        void speakRaw(line, { onEnd: resolve })
-      })
-      await new Promise((r) => setTimeout(r, 320))
+function DialogueStep({ step }: { step: Extract<LessonStep, { kind: 'dialogue' }> }) {
+  const [mode, setMode] = useState<DialogueMode>('read')
+  const [revealed, setRevealed] = useState<Set<number>>(new Set())
+  const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState<number | null>(null)
+  const [yourTurn, setYourTurn] = useState(false)
+  const rate = useSettings((s) => s.rate)
+  const voiceURI = useSettings((s) => s.voiceURI)
+  const voiceName = useSettings((s) => s.voiceName)
+  const { speak, stop } = useSpeak()
+  const run = useRef(0)
+
+  // Leaving the step must not leave the dialogue running.
+  useEffect(() => () => void (run.current += 1), [])
+
+  const hidden = (i: number) => mode === 'listen' && !revealed.has(i)
+
+  const playAll = async () => {
+    if (playing) {
+      run.current += 1
+      stop()
+      setPlaying(false)
+      setCurrent(null)
+      setYourTurn(false)
+      return
     }
+    const mine = ++run.current
+    setPlaying(true)
+    const lines = step.lines.map((l) => l.fr)
+
+    if (mode !== 'shadow') {
+      await speakSequence(lines, {
+        rate,
+        voiceURI: voiceURI ?? undefined,
+        voiceName: voiceName ?? undefined,
+        gapMs: 360,
+        onPart: setCurrent,
+      })
+    } else {
+      for (let i = 0; i < lines.length; i++) {
+        if (run.current !== mine) return
+        setCurrent(i)
+        setYourTurn(false)
+        await new Promise<void>((resolve) => speak(lines[i], { onEnd: resolve }))
+        if (run.current !== mine) return
+        setYourTurn(true)
+        await new Promise((r) => setTimeout(r, estimateMs(lines[i], rate) + 500))
+      }
+    }
+    if (run.current !== mine) return
     setPlaying(false)
+    setCurrent(null)
+    setYourTurn(false)
+  }
+
+  const choose = (next: DialogueMode) => {
+    if (playing) void playAll()
+    setMode(next)
+    setRevealed(new Set())
   }
 
   return (
-    <Button variant="surface" onClick={play} disabled={playing}>
-      <Volume2 /> {playing ? 'Відтворюється…' : 'Прослухати весь діалог'}
-    </Button>
+    <section>
+      <Eyebrow>Діалог</Eyebrow>
+      <Title>{step.title}</Title>
+      <p className="text-fg-subtle mt-2 text-sm italic">{step.setting}</p>
+
+      <div className="border-line bg-surface-2 mt-5 inline-flex rounded-xl border p-1">
+        {(
+          [
+            ['read', 'Читати'],
+            ['listen', 'Спочатку слухати'],
+            ['shadow', 'Повторювати за диктором'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => choose(id)}
+            aria-pressed={mode === id}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors',
+              mode === id ? 'bg-surface text-fg shadow-sm' : 'text-fg-muted hover:text-fg',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'listen' && (
+        <p className="text-fg-muted mt-3 text-[13px] text-pretty">
+          Французький текст сховано. Прослухай, спробуй зрозуміти — і відкривай рядки, щоб
+          перевірити себе.
+        </p>
+      )}
+      {mode === 'shadow' && (
+        <p className="text-fg-muted mt-3 text-[13px] text-pretty">
+          Після кожної репліки — пауза для тебе. Повторюй уголос, копіюючи ритм та інтонацію.
+        </p>
+      )}
+
+      <div className="mt-5 space-y-3">
+        {step.lines.map((line, i) => (
+          <div
+            key={i}
+            className={cn(
+              'rounded-2xl border p-4 transition-colors',
+              i % 2 === 0 ? 'bg-surface' : 'bg-surface-2',
+              current === i ? 'border-primary' : 'border-line',
+            )}
+          >
+            {hidden(i) ? (
+              <div className="flex items-center gap-3">
+                <SpeakButton text={line.fr} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-fg-subtle mb-1 text-[12px] font-medium">{line.speaker}</div>
+                  <button
+                    type="button"
+                    onClick={() => setRevealed((r) => new Set(r).add(i))}
+                    className="text-primary inline-flex items-center gap-1.5 text-[13px] font-medium underline-offset-4 hover:underline"
+                  >
+                    <Eye className="size-3.5" /> Показати текст
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <SpokenLine
+                fr={line.fr}
+                uk={line.uk}
+                frClassName="text-[16px]"
+                ukClassName="mt-1 text-[13.5px]"
+                above={
+                  <div className="text-fg-subtle mb-1 text-[12px] font-medium">{line.speaker}</div>
+                }
+              />
+            )}
+            {mode === 'shadow' && current === i && yourTurn && (
+              <div className="text-accent mt-3 flex items-center gap-2 text-[13px] font-medium">
+                <Mic className="size-4" /> Твоя черга — повтори
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+        <Button variant={playing ? 'soft' : 'surface'} onClick={playAll}>
+          {playing ? <Square /> : <Volume2 />}
+          {playing
+            ? 'Зупинити'
+            : mode === 'shadow'
+              ? 'Почати повторення'
+              : 'Прослухати весь діалог'}
+        </Button>
+        {mode === 'listen' && (
+          <Button
+            variant="ghost"
+            onClick={() =>
+              setRevealed((r) =>
+                r.size === step.lines.length ? new Set() : new Set(step.lines.map((_, i) => i)),
+              )
+            }
+          >
+            {revealed.size === step.lines.length ? <EyeOff /> : <Eye />}
+            {revealed.size === step.lines.length ? 'Сховати весь текст' : 'Показати весь текст'}
+          </Button>
+        )}
+      </div>
+    </section>
   )
 }
 

@@ -6,6 +6,8 @@ import { FullScreen } from '@/components/layout/full-screen'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import type { Exercise } from '@/content'
+import { useSpeak } from '@/components/common/speak'
+import { frenchIn } from '@/lib/speech'
 import { cn, pluralUk } from '@/lib/utils'
 import { useLearner, xpFor } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -86,6 +88,8 @@ export function ExerciseRunner({
   const addMistake = useLearner((s) => s.addMistake)
   const ensureCards = useLearner((s) => s.ensureCards)
   const soundEffects = useSettings((s) => s.soundEffects)
+  const autoSpeak = useSettings((s) => s.autoSpeak)
+  const { speak } = useSpeak()
 
   const current = queue[index]
   const total = queue.length
@@ -129,6 +133,21 @@ export function ExerciseRunner({
 
     if (soundEffects) chime(res.status !== 'wrong')
 
+    // After a miss, the right answer is heard as well as shown. Reading a
+    // correction is one exposure; hearing it while reading it is two, and the
+    // second is the one that survives to the next time the phrase comes up.
+    // Not after a spoken answer — the learner has just said it — and not when
+    // the expected text is a description rather than French ("усі пари").
+    if (
+      autoSpeak &&
+      res.status !== 'correct' &&
+      current.kind !== 'speak' &&
+      current.kind !== 'listen' &&
+      frenchIn(res.expected)
+    ) {
+      setTimeout(() => speak(res.expected), 450)
+    }
+
     if (res.status === 'correct') addXp(xpFor(current.kind), 1, 1)
     else if (res.status === 'almost') addXp(Math.round(xpFor(current.kind) / 2), 1, 1)
     else {
@@ -154,7 +173,19 @@ export function ExerciseRunner({
     }
 
     if (current.words?.length) ensureCards(current.words)
-  }, [addMistake, addXp, current, ensureCards, outcome, soundEffects, strict, title, value])
+  }, [
+    addMistake,
+    addXp,
+    autoSpeak,
+    current,
+    ensureCards,
+    outcome,
+    soundEffects,
+    speak,
+    strict,
+    title,
+    value,
+  ])
 
   const next = useCallback(() => {
     if (index + 1 >= total) {

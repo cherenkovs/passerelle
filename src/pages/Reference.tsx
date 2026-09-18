@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState, LevelChip, PageHeader } from '@/components/common/misc'
 import { RichText } from '@/components/common/rich-text'
-import { SpeakButton, TapText } from '@/components/common/speak'
+import { SpokenLine } from '@/components/common/speak'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -210,18 +210,12 @@ function EntryBody({ entry }: { entry: GrammarEntry }) {
       {entry.examples && (
         <div className="mt-5 space-y-2.5">
           {entry.examples.map((ex, i) => (
-            <div
+            <SpokenLine
               key={i}
-              className="border-line bg-surface-2 flex items-start gap-3 rounded-xl border p-3.5"
-            >
-              <SpeakButton text={ex.fr} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="fr text-[15px] leading-snug font-medium">
-                  <TapText>{ex.fr}</TapText>
-                </div>
-                <div className="text-fg-muted mt-0.5 text-[13px]">{ex.uk}</div>
-              </div>
-            </div>
+              fr={ex.fr}
+              uk={ex.uk}
+              className="border-line bg-surface-2 rounded-xl border p-3.5"
+            />
           ))}
         </div>
       )}

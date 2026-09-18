@@ -3,7 +3,7 @@ import { ArrowRight, Check, Lightbulb, Mic, MicOff, Send, Sparkles, X } from 'lu
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LevelChip, PageHeader } from '@/components/common/misc'
-import { SpeakButton, TapText, useSpeak } from '@/components/common/speak'
+import { SpeakButton, Spoken, useSpeak } from '@/components/common/speak'
 import { FullScreen } from '@/components/layout/full-screen'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -395,12 +395,14 @@ function TeacherBubble({ turn }: { turn: TutorTurn }) {
         👩‍🏫
       </span>
       <div className="border-line bg-surface max-w-[85%] min-w-0 rounded-2xl rounded-tl-md border px-4 py-3 shadow-[var(--shadow-card)]">
-        <div className="flex items-start gap-2.5">
-          <div className="fr min-w-0 flex-1 text-[15.5px] leading-snug">
-            <TapText>{turn.teacher.fr}</TapText>
-          </div>
-          <SpeakButton text={turn.teacher.fr} size="sm" className="shrink-0" />
-        </div>
+        <Spoken text={turn.teacher.fr} size="sm">
+          {({ controls, text }) => (
+            <div className="flex items-start gap-2.5">
+              <div className="fr min-w-0 flex-1 text-[15.5px] leading-snug">{text}</div>
+              <span className="shrink-0">{controls}</span>
+            </div>
+          )}
+        </Spoken>
         <button
           type="button"
           onClick={() => setShowUk((v) => !v)}

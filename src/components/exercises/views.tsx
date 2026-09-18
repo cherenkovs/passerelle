@@ -1,9 +1,16 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Ear, Mic, MicOff, RotateCcw, Volume2 } from 'lucide-react'
+import { Mic, MicOff, RotateCcw, Turtle, Volume2, WholeWord } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AccentBar } from '@/components/common/accent-bar'
 import { Inline, SpeakInline } from '@/components/common/rich-text'
-import { SpeakButton, TapText, useSpeak } from '@/components/common/speak'
+import {
+  SpeakButton,
+  Spoken,
+  TapText,
+  useSpeak,
+  type SpeakController,
+  type SpeakMode,
+} from '@/components/common/speak'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type {
@@ -18,7 +25,7 @@ import type {
   TypeExercise,
   WordBankExercise,
 } from '@/content'
-import { listenOnce, supportsSTT } from '@/lib/speech'
+import { listenOnce, supportsSTT, wordsOf } from '@/lib/speech'
 import { cn, shuffle } from '@/lib/utils'
 import { useSettings } from '@/store/settings'
 import type { AnswerValue, Outcome } from './check'
@@ -40,6 +47,84 @@ export type ViewProps<E extends Exercise = Exercise> = {
 /* ------------------------------------------------------------------ *
  * Shared bits
  * ------------------------------------------------------------------ */
+
+/**
+ * The listening panel: one big play button, and the two slower ways under it.
+ *
+ * Listening and dictation are the exercises where "say that again, slower"
+ * is the whole point, so the three modes are laid out in full rather than as
+ * the compact cluster used beside a line of text. Once the answer is in, the
+ * text appears and lights up word by word on replay — the moment to connect
+ * what was heard to how it is written.
+ */
+function ListeningPanel({
+  text,
+  ctl,
+  revealed,
+  tone = 'primary',
+  hint,
+}: {
+  text: string
+  ctl: SpeakController
+  revealed: boolean
+  tone?: 'primary' | 'accent'
+  hint?: string
+}) {
+  const many = wordsOf(text).length >= 2
+  const modes: { id: SpeakMode; label: string; icon: React.ReactNode }[] = [
+    { id: 'slow', label: 'Повільніше', icon: <Turtle className="size-3.5" /> },
+    ...(many
+      ? [{ id: 'words' as const, label: 'По словах', icon: <WholeWord className="size-3.5" /> }]
+      : []),
+  ]
+
+  return (
+    <div className="border-line bg-surface-2 mb-6 flex flex-col items-center gap-4 rounded-2xl border py-8">
+      <button
+        type="button"
+        onClick={() => ctl.toggle(text, 'normal')}
+        aria-pressed={ctl.mode === 'normal'}
+        className={cn(
+          'grid size-20 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95',
+          tone === 'primary'
+            ? 'bg-primary text-primary-fg shadow-[0_10px_30px_-10px_var(--primary)]'
+            : 'bg-accent text-accent-fg shadow-[0_10px_30px_-10px_var(--accent)]',
+          ctl.mode === 'normal' && 'ring-primary/25 ring-8',
+        )}
+        aria-label="Прослухати"
+      >
+        <Volume2 className={cn('size-9', ctl.mode === 'normal' && 'animate-pulse')} />
+      </button>
+
+      <div className="flex gap-2">
+        {modes.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => ctl.toggle(text, m.id)}
+            aria-pressed={ctl.mode === m.id}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-colors',
+              ctl.mode === m.id
+                ? 'border-primary bg-primary-soft text-primary-soft-fg'
+                : 'border-line bg-surface text-fg-muted hover:text-fg',
+            )}
+          >
+            {m.icon} {m.label}
+          </button>
+        ))}
+      </div>
+
+      {revealed ? (
+        <div className="fr text-fg mt-1 px-6 text-center text-[17px] leading-snug">
+          <TapText activeWord={ctl.activeWord}>{text}</TapText>
+        </div>
+      ) : (
+        hint && <p className="text-fg-subtle px-6 text-center text-[12px] text-pretty">{hint}</p>
+      )}
+    </div>
+  )
+}
 
 function Prompt({ children }: { children?: string }) {
   if (!children) return null
@@ -241,7 +326,8 @@ export function McqView({ exercise, value, onChange, outcome }: ViewProps<McqExe
 
 export function ListenView({ exercise, value, onChange, outcome }: ViewProps<ListenExercise>) {
   const chosen = typeof value === 'number' ? value : null
-  const { speak, speakSlow } = useSpeak()
+  const ctl = useSpeak()
+  const { speak } = ctl
   const autoSpeak = useSettings((s) => s.autoSpeak)
   const played = useRef(false)
 
@@ -257,28 +343,7 @@ export function ListenView({ exercise, value, onChange, outcome }: ViewProps<Lis
     <div>
       <Prompt>{exercise.prompt ?? 'Послухай і обери правильну відповідь'}</Prompt>
 
-      <div className="border-line bg-surface-2 mb-6 flex flex-col items-center gap-4 rounded-2xl border py-9">
-        <button
-          type="button"
-          onClick={() => speak(exercise.audioText)}
-          className="bg-primary text-primary-fg grid size-20 place-items-center rounded-full shadow-[0_10px_30px_-10px_var(--primary)] transition-transform hover:scale-105 active:scale-95"
-          aria-label="Прослухати"
-        >
-          <Volume2 className="size-9" />
-        </button>
-        <button
-          type="button"
-          onClick={() => speakSlow(exercise.audioText)}
-          className="border-line bg-surface text-fg-muted hover:text-fg inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-colors"
-        >
-          <Ear className="size-3.5" /> Повільніше
-        </button>
-        {outcome && (
-          <div className="fr text-fg-muted mt-1 text-center text-sm">
-            <TapText>{exercise.audioText}</TapText>
-          </div>
-        )}
-      </div>
+      <ListeningPanel text={exercise.audioText} ctl={ctl} revealed={Boolean(outcome)} />
 
       <div className="space-y-2.5">
         {exercise.options.map((opt, i) => (
@@ -487,7 +552,8 @@ export function DictationView({
   outcome,
   onSubmit,
 }: ViewProps<DictationExercise>) {
-  const { speak, speakSlow } = useSpeak()
+  const ctl = useSpeak()
+  const { speak } = ctl
   const autoSpeak = useSettings((s) => s.autoSpeak)
   const played = useRef(false)
 
@@ -503,28 +569,13 @@ export function DictationView({
     <div>
       <Prompt>{exercise.prompt ?? 'Диктант — запиши те, що чуєш'}</Prompt>
 
-      <div className="border-line bg-surface-2 mb-6 flex flex-col items-center gap-3 rounded-2xl border py-8">
-        <button
-          type="button"
-          onClick={() => speak(exercise.text)}
-          className="bg-accent text-accent-fg grid size-[72px] place-items-center rounded-full shadow-[0_10px_30px_-10px_var(--accent)] transition-transform hover:scale-105 active:scale-95"
-          aria-label="Прослухати"
-        >
-          <Volume2 className="size-8" />
-        </button>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => speakSlow(exercise.text)}
-            className="border-line bg-surface text-fg-muted hover:text-fg inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium"
-          >
-            <Ear className="size-3.5" /> Повільніше
-          </button>
-        </div>
-        <p className="text-fg-subtle px-6 text-center text-[12px] text-pretty">
-          Німі закінчення почути неможливо — саме тому диктант і працює.
-        </p>
-      </div>
+      <ListeningPanel
+        text={exercise.text}
+        ctl={ctl}
+        revealed={Boolean(outcome)}
+        tone="accent"
+        hint="Німі закінчення почути неможливо — саме тому диктант і працює."
+      />
 
       <AnswerField
         value={typeof value === 'string' ? value : ''}
@@ -535,13 +586,8 @@ export function DictationView({
       />
 
       {outcome && (
-        <div className="bg-surface-2 mt-4 rounded-xl px-4 py-3 text-sm">
-          <div className="fr text-fg">
-            <TapText>{exercise.text}</TapText>
-          </div>
-          <div className="text-fg-muted mt-1">
-            <Inline>{exercise.translation}</Inline>
-          </div>
+        <div className="text-fg-muted mt-4 px-1 text-sm">
+          <Inline>{exercise.translation}</Inline>
         </div>
       )}
     </div>
@@ -816,17 +862,19 @@ export function SpeakView({
     <div>
       <Prompt>{exercise.prompt ?? 'Вимов уголос'}</Prompt>
 
-      <div className="border-line bg-surface-2 mb-6 rounded-2xl border p-6 text-center">
-        <div className="fr font-display text-2xl leading-snug font-semibold text-balance">
-          <TapText>{exercise.text}</TapText>
-        </div>
-        <div className="text-fg-muted mt-2 text-sm">
-          <Inline>{exercise.translation}</Inline>
-        </div>
-        <div className="mt-4 flex justify-center">
-          <SpeakButton text={exercise.text} slow />
-        </div>
-      </div>
+      <Spoken text={exercise.text} words>
+        {({ controls, text }) => (
+          <div className="border-line bg-surface-2 mb-6 rounded-2xl border p-6 text-center">
+            <div className="fr font-display text-2xl leading-snug font-semibold text-balance">
+              {text}
+            </div>
+            <div className="text-fg-muted mt-2 text-sm">
+              <Inline>{exercise.translation}</Inline>
+            </div>
+            <div className="mt-4 flex justify-center">{controls}</div>
+          </div>
+        )}
+      </Spoken>
 
       {supported ? (
         <div className="flex flex-col items-center gap-4">

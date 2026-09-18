@@ -626,3 +626,63 @@ describe('a voice chosen in one browser, opened in another', () => {
     expect(resolveVoice('gone', 'Aurélie')).toBeUndefined()
   })
 })
+
+/* ------------------------------------------------------------------ *
+ * Following along
+ * ------------------------------------------------------------------ */
+
+describe('following the voice word by word', () => {
+  it('counts the words the way the text on screen does', async () => {
+    install([])
+    const { wordsOf } = await import('./speech')
+    // Punctuation on its own is not a word; notation is not spoken at all.
+    expect(wordsOf('Un peu. Je ne parle pas — très bien !')).toEqual([
+      'Un',
+      'peu.',
+      'Je',
+      'ne',
+      'parle',
+      'pas',
+      'très',
+      'bien',
+    ])
+    expect(wordsOf('les amis → [le‿za.mi]')).toEqual(['les', 'amis'])
+  })
+
+  it('reports each word as the engine reaches it, skipping the punctuation', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak } = await import('./speech')
+    const seen: number[] = []
+    await speak('Tu parles français ?', { onWord: (i) => seen.push(i) })
+    const u = lastUtterance as unknown as {
+      text: string
+      onboundary?: (e: { name: string; charIndex: number; charLength?: number }) => void
+    }
+    expect(u.onboundary).toBeTypeOf('function')
+    // Chrome sends a sentence boundary first, then one per word; some engines
+    // also report the trailing "?" as its own boundary. Only the words count.
+    u.onboundary!({ name: 'sentence', charIndex: 0 })
+    u.onboundary!({ name: 'word', charIndex: 0, charLength: 2 })
+    u.onboundary!({ name: 'word', charIndex: 3, charLength: 6 })
+    u.onboundary!({ name: 'word', charIndex: 10, charLength: 8 })
+    u.onboundary!({ name: 'word', charIndex: 19, charLength: 1 })
+    expect(seen).toEqual([0, 1, 2])
+  })
+
+  it('says a sequence in order and stops the moment something else is said', async () => {
+    install([voice('Aurélie', 'fr-FR')])
+    const { speak, speakSequence } = await import('./speech')
+    const parts: number[] = []
+    const run = speakSequence(['un', 'deux', 'trois'], { gapMs: 0, onPart: (i) => parts.push(i) })
+    // Let the first part be handed to the engine, then end it.
+    await new Promise((r) => setTimeout(r, 0))
+    lastUtterance!.onend?.(new Event('end') as never)
+    await new Promise((r) => setTimeout(r, 0))
+    // A tap elsewhere while the second is playing: the sequence must yield.
+    await speak('bonjour')
+    lastUtterance!.onend?.(new Event('end') as never)
+    await run
+    expect(parts).toEqual([0, 1])
+    expect(spoken.map((s) => s.text)).toEqual(['un', 'deux', 'bonjour'])
+  })
+})

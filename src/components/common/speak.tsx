@@ -1,10 +1,17 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover'
-import { BookmarkPlus, BookmarkCheck, Loader2, Volume2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BookmarkPlus, BookmarkCheck, Turtle, Volume2, WholeWord } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { WORDS, type Word } from '@/content'
 import { agree } from '@/lib/agreement'
 import { parseEmphasis, type Span } from '@/lib/emphasis'
-import { cancelSpeechBy, loadVoices, slowRate, speak as speakRaw } from '@/lib/speech'
+import {
+  cancelSpeechBy,
+  loadVoices,
+  slowRate,
+  speak as speakRaw,
+  speakSequence,
+  wordsOf,
+} from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useGender, useLearner } from '@/store/learner'
 import { useSettings } from '@/store/settings'
@@ -13,12 +20,37 @@ import { useSettings } from '@/store/settings'
  * Speaking
  * ------------------------------------------------------------------ */
 
-export function useSpeak() {
+/**
+ * The three ways a phrase can be heard.
+ *
+ * Normal is the voice at the learner's chosen speed. Slow is half that, for
+ * hearing where one word ends and the next begins — French runs words
+ * together, and at full speed a beginner hears "vous avez" as one sound. Words
+ * goes further and says each word on its own with a pause, which is the mode
+ * for picking a phrase apart before trying to say it.
+ */
+export type SpeakMode = 'normal' | 'slow' | 'words'
+
+export type SpeakController = {
+  speak: (text: string, opts?: { rate?: number; onEnd?: () => void }) => void
+  speakSlow: (text: string) => void
+  speakWords: (text: string) => void
+  /** Play `text` in `mode`, or stop if that same mode is already playing. */
+  toggle: (text: string, mode: SpeakMode) => void
+  stop: () => void
+  speaking: boolean
+  mode: SpeakMode | null
+  /** Index of the word being said right now, when the engine reports it. */
+  activeWord: number | null
+}
+
+export function useSpeak(): SpeakController {
   const rate = useSettings((s) => s.rate)
   const voiceURI = useSettings((s) => s.voiceURI)
   const voiceName = useSettings((s) => s.voiceName)
   const gender = useGender()
-  const [speaking, setSpeaking] = useState(false)
+  const [mode, setMode] = useState<SpeakMode | null>(null)
+  const [activeWord, setActiveWord] = useState<number | null>(null)
 
   // Identity for this hook instance, so unmounting silences only what it
   // started. A flashcard flip unmounts the speaker button inside the card, and
@@ -30,90 +62,298 @@ export function useSpeak() {
     return () => cancelSpeechBy(owner)
   }, [owner])
 
-  const speak = useCallback(
-    (text: string, opts: { rate?: number; onEnd?: () => void } = {}) => {
-      setSpeaking(true)
+  const done = useCallback(() => {
+    setMode(null)
+    setActiveWord(null)
+  }, [])
+
+  const say = useCallback(
+    (text: string, which: SpeakMode, opts: { rate?: number; onEnd?: () => void } = {}) => {
+      setMode(which)
+      setActiveWord(null)
       void speakRaw(agree(text, gender), {
         rate: opts.rate ?? rate,
         voiceURI: voiceURI ?? undefined,
         voiceName: voiceName ?? undefined,
         owner,
+        onWord: setActiveWord,
         onEnd: () => {
-          setSpeaking(false)
+          done()
           // Callers that read several passages in a row need to know when one
           // has finished, so they can start the next instead of talking over it.
           opts.onEnd?.()
         },
       })
     },
-    [gender, rate, voiceURI, voiceName, owner],
+    [gender, rate, voiceURI, voiceName, owner, done],
   )
 
-  /** Deliberately slow — for picking a phrase apart word by word. */
+  const speak = useCallback(
+    (text: string, opts: { rate?: number; onEnd?: () => void } = {}) => say(text, 'normal', opts),
+    [say],
+  )
+
+  /** Deliberately slow — for hearing where the words join. */
   const speakSlow = useCallback(
-    (text: string) => speak(text, { rate: slowRate(rate) }),
-    [speak, rate],
+    (text: string) => say(text, 'slow', { rate: slowRate(rate) }),
+    [say, rate],
   )
 
-  return { speak, speakSlow, speaking }
+  /** One word at a time, each on its own, with room between them. */
+  const speakWords = useCallback(
+    (text: string) => {
+      const words = wordsOf(agree(text, gender))
+      if (!words.length) return
+      setMode('words')
+      setActiveWord(null)
+      void speakSequence(words, {
+        // A touch under the learner's speed: single words said at full pace
+        // come out clipped, and clipped is the opposite of what this is for.
+        rate: Math.min(rate, 0.85),
+        gapMs: 420,
+        voiceURI: voiceURI ?? undefined,
+        voiceName: voiceName ?? undefined,
+        owner,
+        onPart: setActiveWord,
+      }).then(done)
+    },
+    [gender, rate, voiceURI, voiceName, owner, done],
+  )
+
+  const stop = useCallback(() => {
+    cancelSpeechBy(owner)
+    done()
+  }, [owner, done])
+
+  const toggle = useCallback(
+    (text: string, which: SpeakMode) => {
+      if (mode === which) {
+        stop()
+        return
+      }
+      if (which === 'slow') speakSlow(text)
+      else if (which === 'words') speakWords(text)
+      else speak(text)
+    },
+    [mode, stop, speak, speakSlow, speakWords],
+  )
+
+  return { speak, speakSlow, speakWords, toggle, stop, speaking: mode !== null, mode, activeWord }
 }
 
-export function SpeakButton({
+/* ------------------------------------------------------------------ *
+ * The audio control
+ *
+ * One cluster, everywhere French is heard: play, slow, and — for phrases —
+ * word by word. Every piece of French in the app gets the same three, so the
+ * learner never has to wonder whether *this* speaker button can go slow.
+ * ------------------------------------------------------------------ */
+
+type ControlSize = 'sm' | 'md' | 'lg'
+
+const MAIN_SIZE: Record<ControlSize, string> = {
+  sm: 'size-8 [&_svg]:size-4',
+  md: 'size-10 [&_svg]:size-5',
+  lg: 'size-12 [&_svg]:size-6',
+}
+
+const AUX_SIZE: Record<ControlSize, string> = {
+  sm: 'size-6 [&_svg]:size-3.5',
+  md: 'size-8 [&_svg]:size-4',
+  lg: 'size-9 [&_svg]:size-[18px]',
+}
+
+export function SpeakControls({
   text,
-  className,
+  ctl,
   size = 'md',
   label,
-  slow,
+  slow = true,
+  words = 'auto',
+  className,
 }: {
   text: string
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
+  ctl: SpeakController
+  size?: ControlSize
   label?: string
-  /** Render a secondary half-speed button too. */
+  /** Offer the half-speed reading. On by default: every phrase deserves it. */
   slow?: boolean
+  /** Offer word-by-word. `auto` shows it once there are three words to split. */
+  words?: boolean | 'auto'
+  className?: string
 }) {
-  const { speak, speakSlow, speaking } = useSpeak()
-  const dim =
-    size === 'sm'
-      ? 'size-8 [&_svg]:size-4'
-      : size === 'lg'
-        ? 'size-12 [&_svg]:size-6'
-        : 'size-10 [&_svg]:size-5'
+  const showWords = words === 'auto' ? wordsOf(text).length >= 3 : words
+  const main = ctl.mode === 'normal'
 
   return (
     // A span, not a div: this sits inside prose paragraphs, and a <div> inside
     // a <p> is invalid HTML — the browser silently closes the paragraph early,
     // which breaks the run of text around it. `inline-flex` renders the same.
-    <span className="inline-flex items-center gap-1.5">
+    <span className={cn('inline-flex items-center gap-1 align-middle', className)}>
       <button
         type="button"
-        onClick={() => speak(text)}
+        onClick={() => ctl.toggle(text, 'normal')}
         aria-label={label ?? `Прослухати: ${text}`}
+        aria-pressed={main}
         className={cn(
           'bg-primary-soft text-primary-soft-fg grid shrink-0 place-items-center rounded-full transition-all',
           'hover:brightness-95 active:scale-95 dark:hover:brightness-110',
-          dim,
-          speaking && 'animate-pulse',
-          className,
+          'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
+          MAIN_SIZE[size],
+          main && 'bg-primary text-primary-fg ring-primary/25 ring-4',
         )}
       >
-        {speaking ? <Loader2 className="animate-spin" /> : <Volume2 />}
+        <Volume2 className={cn(main && 'animate-pulse')} />
       </button>
+
       {slow && (
         <button
           type="button"
-          onClick={() => speakSlow(text)}
+          onClick={() => ctl.toggle(text, 'slow')}
           aria-label="Прослухати повільно"
+          aria-pressed={ctl.mode === 'slow'}
           title="Повільно"
           className={cn(
-            'border-line text-fg-muted hover:bg-surface-2 hover:text-fg grid shrink-0 place-items-center rounded-full border transition-colors',
-            size === 'sm' ? 'size-8 text-[10px]' : 'size-10 text-[11px]',
+            'text-fg-subtle hover:bg-surface-2 hover:text-fg grid shrink-0 place-items-center rounded-full transition-colors',
+            'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
+            AUX_SIZE[size],
+            ctl.mode === 'slow' && 'bg-primary-soft text-primary-soft-fg',
           )}
         >
-          ½×
+          <Turtle />
+        </button>
+      )}
+
+      {showWords && (
+        <button
+          type="button"
+          onClick={() => ctl.toggle(text, 'words')}
+          aria-label="Прослухати по словах"
+          aria-pressed={ctl.mode === 'words'}
+          title="По словах"
+          className={cn(
+            'text-fg-subtle hover:bg-surface-2 hover:text-fg grid shrink-0 place-items-center rounded-full transition-colors',
+            'focus-visible:ring-primary/40 outline-none focus-visible:ring-4',
+            AUX_SIZE[size],
+            ctl.mode === 'words' && 'bg-primary-soft text-primary-soft-fg',
+          )}
+        >
+          <WholeWord />
         </button>
       )}
     </span>
+  )
+}
+
+/** The audio control on its own, for French that is shown elsewhere. */
+export function SpeakButton({
+  text,
+  className,
+  size = 'md',
+  label,
+  slow = true,
+  words = 'auto',
+}: {
+  text: string
+  className?: string
+  size?: ControlSize
+  label?: string
+  slow?: boolean
+  words?: boolean | 'auto'
+}) {
+  const ctl = useSpeak()
+  return (
+    <SpeakControls
+      text={text}
+      ctl={ctl}
+      size={size}
+      label={label}
+      slow={slow}
+      words={words}
+      className={className}
+    />
+  )
+}
+
+/**
+ * French text and its audio, wired to each other.
+ *
+ * The words light up as they are said. That needs the control and the text to
+ * share one controller, which is why this exists: a `SpeakButton` next to a
+ * `TapText` are two strangers, and the text has no way of knowing which word
+ * the voice has reached. The layout is the caller's — dialogue lines, story
+ * paragraphs and exercise reveals all put the pieces in different places.
+ */
+export function Spoken({
+  text,
+  size = 'md',
+  slow,
+  words,
+  textClassName,
+  children,
+}: {
+  text: string
+  size?: ControlSize
+  slow?: boolean
+  words?: boolean | 'auto'
+  textClassName?: string
+  children: (parts: { controls: ReactNode; text: ReactNode; ctl: SpeakController }) => ReactNode
+}) {
+  const ctl = useSpeak()
+  return (
+    <>
+      {children({
+        ctl,
+        controls: <SpeakControls text={text} ctl={ctl} size={size} slow={slow} words={words} />,
+        text: (
+          <TapText activeWord={ctl.activeWord} className={textClassName}>
+            {text}
+          </TapText>
+        ),
+      })}
+    </>
+  )
+}
+
+/**
+ * The commonest arrangement: audio on the left, French beside it, Ukrainian
+ * underneath. Grammar examples, dialogue lines and word examples are all this.
+ */
+export function SpokenLine({
+  fr,
+  uk,
+  size = 'sm',
+  className,
+  frClassName,
+  ukClassName,
+  above,
+}: {
+  fr: string
+  uk?: string
+  size?: ControlSize
+  className?: string
+  frClassName?: string
+  ukClassName?: string
+  /** Rendered above the French — a speaker's name, a label. */
+  above?: ReactNode
+}) {
+  return (
+    <Spoken text={fr} size={size}>
+      {({ controls, text }) => (
+        <div className={cn('flex items-start gap-3', className)}>
+          <span className="mt-0.5 shrink-0">{controls}</span>
+          <div className="min-w-0 flex-1">
+            {above}
+            <div className={cn('fr text-[15px] leading-snug font-medium', frClassName)}>{text}</div>
+            {uk && (
+              <div className={cn('text-fg-muted mt-0.5 text-[13px] leading-snug', ukClassName)}>
+                {uk}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </Spoken>
   )
 }
 
@@ -365,6 +605,14 @@ const WORD_CLASS =
   'decoration-primary/25 hover:bg-primary-soft hover:decoration-primary/60 cursor-pointer rounded-[3px] underline decoration-dotted decoration-1 underline-offset-[3px] transition-colors'
 
 /**
+ * The word being said right now.
+ *
+ * A filled highlight rather than a colour change: it has to be findable at a
+ * glance from across the line, while the eye is on the previous word.
+ */
+const ACTIVE_CLASS = 'bg-primary text-primary-fg decoration-transparent'
+
+/**
  * One whitespace-separated word.
  *
  * Tapping **speaks it and opens the gloss**. It used to only open the gloss,
@@ -377,7 +625,7 @@ const WORD_CLASS =
  * guessing at them would risk showing the wrong meaning — but there is always
  * something to *hear*, and silence was the worse answer.
  */
-function Token({ token }: { token: string }) {
+function Token({ token, active }: { token: string; active?: boolean }) {
   const gloss = lookupWord(token)
   const { speak } = useSpeak()
 
@@ -390,7 +638,7 @@ function Token({ token }: { token: string }) {
         type="button"
         onClick={() => speak(token)}
         aria-label={`Прослухати: ${token}`}
-        className={WORD_CLASS}
+        className={cn(WORD_CLASS, active && ACTIVE_CLASS)}
       >
         {token}
       </button>
@@ -400,7 +648,11 @@ function Token({ token }: { token: string }) {
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger asChild>
-        <button type="button" onClick={() => speak(gloss.word?.fr ?? token)} className={WORD_CLASS}>
+        <button
+          type="button"
+          onClick={() => speak(gloss.word?.fr ?? token)}
+          className={cn(WORD_CLASS, active && ACTIVE_CLASS)}
+        >
           {token}
         </button>
       </PopoverPrimitive.Trigger>
@@ -412,32 +664,38 @@ function Token({ token }: { token: string }) {
 /**
  * Emphasis is resolved before tokenising: a marker left in the text ends up
  * inside a tappable word and silently breaks its dictionary lookup.
+ *
+ * `counter` numbers the spoken words across nested spans, in order, so the
+ * index the voice reports lines up with a token on screen. Only tokens with a
+ * letter count — the same rule the voice layer applies — so punctuation on its
+ * own does not put the highlight one word ahead.
  */
-function tappable(spans: Span[]): React.ReactNode[] {
+function tappable(
+  spans: Span[],
+  activeWord: number | null | undefined,
+  counter: { n: number },
+): React.ReactNode[] {
   return spans.map((span, i) => {
     if (span.kind === 'bold') {
       return (
         <strong key={i} className="text-primary font-semibold">
-          {tappable(span.children)}
+          {tappable(span.children, activeWord, counter)}
         </strong>
       )
     }
     if (span.kind === 'italic') {
       return (
         <em key={i} className="italic">
-          {tappable(span.children)}
+          {tappable(span.children, activeWord, counter)}
         </em>
       )
     }
-    return span.text
-      .split(/(\s+)/)
-      .map((token, j) =>
-        /^\s*$/.test(token) ? (
-          <span key={`${i}-${j}`}>{token}</span>
-        ) : (
-          <Token key={`${i}-${j}`} token={token} />
-        ),
-      )
+    return span.text.split(/(\s+)/).map((token, j) => {
+      if (/^\s*$/.test(token)) return <span key={`${i}-${j}`}>{token}</span>
+      const counts = /\p{L}/u.test(token)
+      const index = counts ? counter.n++ : -1
+      return <Token key={`${i}-${j}`} token={token} active={counts && index === activeWord} />
+    })
   })
 }
 
@@ -445,12 +703,15 @@ export function TapText({
   children,
   className,
   as: Tag = 'span',
+  activeWord,
 }: {
   children: string
   className?: string
   as?: 'span' | 'p' | 'div'
+  /** Index of the word currently being spoken, from a shared `useSpeak`. */
+  activeWord?: number | null
 }) {
   const gender = useGender()
   const spans = useMemo(() => parseEmphasis(agree(children, gender)), [children, gender])
-  return <Tag className={cn('fr', className)}>{tappable(spans)}</Tag>
+  return <Tag className={cn('fr', className)}>{tappable(spans, activeWord, { n: 0 })}</Tag>
 }

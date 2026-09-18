@@ -29,10 +29,9 @@ import {
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { VIDEOS, getVideo, getWords } from '@/content'
 import { WordCard } from '@/components/common/word-card'
-import { cancelSpeech, speak as speakRaw } from '@/lib/speech'
+import { cancelSpeech } from '@/lib/speech'
 import { cn, formatDuration } from '@/lib/utils'
 import { useActiveProfile, useLearner } from '@/store/learner'
-import { useSettings } from '@/store/settings'
 
 /** Accepts a full URL or a bare id. */
 function parseYouTubeId(input: string): string | null {
@@ -278,8 +277,7 @@ export function VideoPage() {
   const [playingAll, setPlayingAll] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const abortRef = useRef(false)
-  const { speak } = useSpeak()
-  const rate = useSettings((s) => s.rate)
+  const { speak, activeWord } = useSpeak()
 
   useEffect(() => () => cancelSpeech(), [])
 
@@ -347,9 +345,7 @@ export function VideoPage() {
     for (let i = 0; i < transcript.length; i++) {
       if (abortRef.current) break
       setActive(i)
-      await new Promise<void>((resolve) => {
-        void speakRaw(transcript[i].fr, { rate, onEnd: resolve })
-      })
+      await new Promise<void>((resolve) => speak(transcript[i].fr, { onEnd: resolve }))
       await new Promise((r) => setTimeout(r, 220))
     }
     setPlayingAll(false)
@@ -435,7 +431,7 @@ export function VideoPage() {
 
               <div className="min-w-0 flex-1">
                 <div className="fr text-fg text-[15px] leading-relaxed">
-                  <TapText>{line.fr}</TapText>
+                  <TapText activeWord={active === i ? activeWord : null}>{line.fr}</TapText>
                 </div>
                 {showUk && line.uk && (
                   <div className="text-fg-muted mt-0.5 text-[13px]">{line.uk}</div>

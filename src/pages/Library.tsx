@@ -13,7 +13,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LevelChip, PageHeader } from '@/components/common/misc'
-import { SpeakButton, TapText, useSpeak } from '@/components/common/speak'
+import { SpeakButton, Spoken, TapText, useSpeak } from '@/components/common/speak'
 import { ExerciseRunner } from '@/components/exercises/runner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -241,35 +241,42 @@ export function StoryPage() {
           const open = showAll || revealed.has(i)
           return (
             <div key={i} className="group relative">
-              <div className="flex gap-3">
-                <SpeakButton
-                  text={p.fr.replace(/\n/g, ' ')}
-                  size="sm"
-                  className="mt-1 shrink-0 opacity-40 transition-opacity group-hover:opacity-100"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="fr text-fg text-[1.15em] leading-[1.75] whitespace-pre-line">
-                    <TapText>{p.fr}</TapText>
+              <Spoken text={p.fr.replace(/\n/g, ' ')} size="sm" words={false}>
+                {({ controls, ctl }) => (
+                  <div className="flex gap-3">
+                    <span
+                      className={cn(
+                        'mt-1 shrink-0 transition-opacity group-hover:opacity-100',
+                        ctl.speaking ? 'opacity-100' : 'opacity-40',
+                      )}
+                    >
+                      {controls}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="fr text-fg text-[1.15em] leading-[1.75] whitespace-pre-line">
+                        <TapText activeWord={ctl.activeWord}>{p.fr}</TapText>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggle(i)}
+                        className={cn(
+                          'text-primary mt-1.5 text-[0.8em] font-medium underline-offset-4 transition-opacity hover:underline',
+                          open && 'opacity-0 group-hover:opacity-100',
+                        )}
+                      >
+                        {open ? 'сховати' : 'переклад'}
+                      </button>
+
+                      {open && (
+                        <p className="border-line-strong text-fg-muted mt-1 border-l-2 pl-3 text-[0.92em] leading-relaxed whitespace-pre-line">
+                          {p.uk}
+                        </p>
+                      )}
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => toggle(i)}
-                    className={cn(
-                      'text-primary mt-1.5 text-[0.8em] font-medium underline-offset-4 transition-opacity hover:underline',
-                      open && 'opacity-0 group-hover:opacity-100',
-                    )}
-                  >
-                    {open ? 'сховати' : 'переклад'}
-                  </button>
-
-                  {open && (
-                    <p className="border-line-strong text-fg-muted mt-1 border-l-2 pl-3 text-[0.92em] leading-relaxed whitespace-pre-line">
-                      {p.uk}
-                    </p>
-                  )}
-                </div>
-              </div>
+                )}
+              </Spoken>
             </div>
           )
         })}

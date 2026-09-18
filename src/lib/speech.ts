@@ -315,10 +315,73 @@ export type SpeakOptions = {
   lang?: string
   onEnd?: () => void
   onStart?: () => void
+  /**
+   * Called as each word starts, with its index among the spoken words.
+   *
+   * This is what lets the text light up in time with the voice. Word boundary
+   * events come from the engine, not from a timer, so the highlight stays with
+   * the sound even when the voice hesitates. Not every engine sends them —
+   * Firefox rarely does — in which case this is simply never called and the
+   * text stays as it was.
+   */
+  onWord?: (index: number) => void
   /** Identity of the caller, so it can later cancel only its own speech. */
   owner?: unknown
   /** Set when this is already the retry after a voice failed; stops a loop. */
   retried?: boolean
+  /** Internal: this utterance is one step of speakSequence and must not end it. */
+  partOfSequence?: boolean
+}
+
+/**
+ * Which run of speech is current. Every new request — a tap, a cancel, a
+ * sequence starting — moves it on, and a sequence in progress stops the moment
+ * it sees the number change under it. This is what makes "tap another word
+ * halfway through a word-by-word reading" do the obvious thing.
+ */
+let generation = 0
+
+/**
+ * Sequences waiting on an utterance to finish.
+ *
+ * An interrupted utterance does not reliably report its end — some engines
+ * fire an error, some fire nothing — so a sequence cannot wait on that alone.
+ * Moving the generation on releases every waiter, and each then sees it is no
+ * longer current and stops.
+ */
+const waiters = new Set<() => void>()
+
+function bump() {
+  generation++
+  for (const release of waiters) release()
+  waiters.clear()
+}
+
+/**
+ * The words of a phrase, as the voice will meet them.
+ *
+ * Split after the notation has been stripped, so the count matches the words
+ * the engine reports boundaries for and the tokens the text is displayed as.
+ * Tokens with no letters — a stray dash, a lone quotation mark — are dropped,
+ * because neither the engine nor the reader counts them as words.
+ */
+export function wordsOf(text: string): string[] {
+  return speakable(text)
+    .split(/\s+/)
+    .filter((w) => /\p{L}/u.test(w))
+}
+
+/**
+ * A rough length for a phrase, for pauses that should scale with it.
+ *
+ * Shadowing needs a gap after each line long enough to say it back. Timing the
+ * actual utterance would be exact but would need it to finish first; at ~14
+ * characters a second for the default rate this is close enough to leave a
+ * gap that feels like the learner's turn rather than a hiccup.
+ */
+export function estimateMs(text: string, rate = 0.92): number {
+  const chars = speakable(text).length
+  return Math.max(900, Math.round((chars / 14) * 1000 * (1 / Math.max(rate, 0.3))))
 }
 
 let currentUtterance: SpeechSynthesisUtterance | null = null
@@ -338,6 +401,7 @@ let currentOwner: unknown = null
 
 export function cancelSpeech() {
   if (!supportsTTS()) return
+  bump()
   currentUtterance = null
   currentOwner = null
   window.speechSynthesis.cancel()
@@ -489,6 +553,7 @@ export function frenchIn(text: string): string {
 
 export async function speak(text: string, opts: SpeakOptions = {}) {
   if (!supportsTTS() || !text?.trim()) return
+  if (!opts.partOfSequence) bump()
 
   // Only wait for the voice list when we haven't got one yet. Awaiting
   // unconditionally put a promise hop — and, on a cold page where Chrome has
@@ -510,6 +575,22 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
   if (voice) u.voice = voice
 
   if (opts.onStart) u.onstart = opts.onStart
+
+  if (opts.onWord) {
+    const onWord = opts.onWord
+    let index = -1
+    u.onboundary = (event) => {
+      // Chrome reports sentence boundaries too; only the words count.
+      if (event.name && event.name !== 'word') return
+      // Safari leaves charLength undefined; one character is enough to tell a
+      // word from the punctuation between words, which has no letter in it.
+      const piece = u.text.slice(event.charIndex, event.charIndex + (event.charLength || 1))
+      if (!/\p{L}/u.test(piece)) return
+      index += 1
+      onWord(index)
+    }
+  }
+
   const finish = () => {
     if (currentUtterance === u) {
       currentUtterance = null
@@ -556,6 +637,46 @@ export async function speak(text: string, opts: SpeakOptions = {}) {
     window.speechSynthesis.pause()
     window.speechSynthesis.resume()
   }, 9000)
+}
+
+/**
+ * Say several things in turn, with a pause between them.
+ *
+ * Word-by-word reading and "play the whole dialogue" are the same operation
+ * with different parts and a different gap. `onPart` fires as each begins, so
+ * the text can follow along; the promise settles when the last has finished
+ * or when something else has taken the voice — a tap elsewhere, a page left —
+ * in which case the remaining parts are simply not said.
+ */
+export async function speakSequence(
+  parts: string[],
+  opts: Omit<SpeakOptions, 'onEnd' | 'onWord' | 'partOfSequence'> & {
+    gapMs?: number
+    onPart?: (index: number) => void
+  } = {},
+): Promise<void> {
+  if (!supportsTTS() || !parts.length) return
+  bump()
+  const mine = generation
+  const gap = opts.gapMs ?? 320
+
+  for (let i = 0; i < parts.length; i++) {
+    if (generation !== mine) return
+    opts.onPart?.(i)
+    await new Promise<void>((resolve) => {
+      waiters.add(resolve)
+      void speak(parts[i], {
+        ...opts,
+        partOfSequence: true,
+        onEnd: () => {
+          waiters.delete(resolve)
+          resolve()
+        },
+      })
+    })
+    if (generation !== mine) return
+    if (i < parts.length - 1 && gap > 0) await new Promise((r) => setTimeout(r, gap))
+  }
 }
 
 /* ------------------------------------------------------------------ *

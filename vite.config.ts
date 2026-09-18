@@ -6,6 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: './',
+  // The port is taken from the environment when one is assigned — the app
+  // preview hands one out so two Vite projects on this machine do not fight
+  // over 5173 — and falls back to Vite's own default otherwise.
+  server: { port: Number(process.env.PORT) || 5173 },
   plugins: [
     react(),
     tailwindcss(),
