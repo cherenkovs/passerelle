@@ -645,8 +645,21 @@ export function rounded(text: string): string {
  * engine's start-up to every group and clipped the end of each one. One
  * utterance with a comma between groups gives the same breaths from the
  * voice's own phrasing, with nothing cut.
+ *
+ * The pauses are where the slowness comes from, so there have to be some:
+ * a short phrase pauses after every two words rather than three, and a word
+ * on its own — which has nowhere to pause — is said twice, with a breath
+ * between. On the engines that clamp the rate, a single word played once at
+ * "slow" was indistinguishable from normal.
  */
-export function slowText(text: string, size = 3): string {
+export function slowText(text: string): string {
+  const words = wordsOf(text)
+  if (words.length <= 1) {
+    const word = rounded(speakable(text))
+    return word ? `${word} ${word}` : word
+  }
+  // Two words get a pause between them; up to five, a pause after each two.
+  const size = words.length <= 2 ? 1 : words.length <= 5 ? 2 : 3
   return slowChunks(text, size)
     .map((c, i, all) => (i < all.length - 1 && !/[,;:.!?…]$/.test(c) ? `${c},` : c))
     .join(' ')
